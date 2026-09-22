@@ -2,3 +2,7 @@
 
 from game import Game
 game = Game()
+
+from db import Db
+
+db = Db()
