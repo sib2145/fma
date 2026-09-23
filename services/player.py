@@ -92,27 +92,15 @@ class PlayerService:
         dialog_id: int | None
     ) -> bool:
 
-        print("1. Открываем session")
-
         async with self.db.session_factory() as session:
 
-            print("2. Получаем player")
-
             player = await session.get(Player, player_id)
-
-            print("3. Player:", player)
 
             if player is None:
                 return False
 
             player.current_dialog_id = dialog_id
 
-            print("4. Установили current_dialog_id")
-
-            await session.flush()
-            print("5. Flush выполнен")
-
             await session.commit()
-            print("6. Commit выполнен")
 
             return True

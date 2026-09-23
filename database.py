@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, event
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -10,16 +10,30 @@ from models.text import Text
 
 class Database:
     def __init__(self, db_path: str):
+
         self.engine = create_async_engine(
             f"sqlite+aiosqlite:///{db_path}",
-            echo=False,
+            #echo=False,
+            echo=True,
         )
+
+        @event.listens_for(self.engine.sync_engine, "connect")
+        def configure_sqlite(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute("PRAGMA busy_timeout=5000")
+
+            cursor.close()
 
         self.session_factory = async_sessionmaker(
             self.engine,
             class_=AsyncSession,
             expire_on_commit=False,
         )
+
+
 
     async def close(self):
         await self.engine.dispose()
