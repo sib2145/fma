@@ -2,8 +2,9 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+
 from aiogram.filters import BaseFilter
-from aiogram.types import TelegramObject
+from aiogram.types import TelegramObject, CopyTextButton, InlineKeyboardButton
 
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
@@ -43,6 +44,10 @@ class AddDialogState(StatesGroup):
     
 class ViewDialogState(StatesGroup):
     waiting_for_id = State()
+    
+class EditDialogTextState(StatesGroup):
+    waiting_for_text = State()
+
     
 class AddDialogOptionState(StatesGroup):
     waiting_for_text = State()
@@ -262,6 +267,15 @@ async def show_dialog(
 
     builder = InlineKeyboardBuilder()
 
+    builder.add(
+        InlineKeyboardButton(
+            text="Скопировать текст",
+            copy_text=CopyTextButton(
+                text=dialog.text.text
+            )
+        )
+    )
+
     builder.button(
         text="Редактировать текст",
         callback_data=f"admin:dialogs:edit:{dialog.id}"
@@ -340,6 +354,99 @@ async def add_dialog_option_callback(
         reply_markup=builder.as_markup(),
         parse_mode="HTML"
     )
+    
+@admin_router.callback_query(
+    F.data.regexp(r"^admin:dialogs:edit:\d+$")
+)
+async def edit_dialog_text_callback(
+    callback: CallbackQuery,
+    state: FSMContext
+):
+    await callback.answer()
+
+    dialog_id = int(callback.data.split(":")[-1])
+
+    dialog = await game.dialogs.get_by_id(dialog_id)
+
+    if dialog is None:
+        await callback.message.edit_text(
+            "⚠️ Диалог не найден."
+        )
+        return
+
+    await state.update_data(
+        dialog_id=dialog_id
+    )
+
+    await state.set_state(
+        EditDialogTextState.waiting_for_text
+    )
+
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text="Отмена",
+        callback_data=f"admin:dialogs:view:{dialog_id}"
+    )
+
+    builder.adjust(1)
+
+    await callback.message.edit_text(
+        "Введите новый текст диалога:",
+        reply_markup=builder.as_markup(),
+        parse_mode="HTML"
+    )
+
+
+@admin_router.message(
+    EditDialogTextState.waiting_for_text,
+    F.text
+)
+async def edit_dialog_text(
+    message: Message,
+    state: FSMContext
+):
+    new_text = message.text.strip()
+
+    if not new_text:
+        await message.answer(
+            "⚠️ Текст диалога не может быть пустым."
+        )
+        return
+
+    data = await state.get_data()
+    dialog_id = data["dialog_id"]
+
+    dialog = await game.dialogs.get_by_id(dialog_id)
+
+    if dialog is None:
+        await state.clear()
+
+        await message.answer(
+            "⚠️ Диалог не найден."
+        )
+        return
+
+    await game.texts.update(
+        text_id=dialog.text_id,
+        text=new_text
+    )
+
+    await state.clear()
+
+    dialog = await game.dialogs.get_by_id(dialog_id)
+
+    if dialog is None:
+        await message.answer(
+            "⚠️ Диалог не найден."
+        )
+        return
+
+    await show_dialog(
+        message,
+        dialog
+    )
+
 
 
 @admin_router.message(
@@ -422,6 +529,15 @@ async def show_dialog_option(
         text += str(option.next_dialog_id)
 
     builder = InlineKeyboardBuilder()
+    
+    builder.add(
+        InlineKeyboardButton(
+            text="Скопировать текст",
+            copy_text=CopyTextButton(
+                text=option.text.text
+            )
+        )
+    )
 
     builder.button(
         text="Редактировать текст",
