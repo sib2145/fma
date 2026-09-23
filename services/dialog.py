@@ -22,7 +22,14 @@ class DialogService:
                 .where(Dialog.id == dialog_id)
             )
 
-            return result.scalar_one_or_none()
+            dialog = result.scalar_one_or_none()
+
+            if dialog is not None:
+                dialog.options.sort(
+                    key=lambda option: option.weight or 0
+                )
+
+            return dialog
 
 
     async def create(
@@ -99,9 +106,116 @@ class DialogService:
             result = await session.execute(
                 select(DialogOption)
                 .options(
-                    selectinload(DialogOption.text)
+                    selectinload(DialogOption.text),
+                    selectinload(DialogOption.dialog)
+                    .selectinload(Dialog.options)
                 )
                 .where(DialogOption.id == option_id)
             )
 
-            return result.scalar_one_or_none()
+            option = result.scalar_one_or_none()
+
+            if option is not None:
+                option.dialog.options.sort(
+                    key=lambda item: item.weight or 0
+                )
+
+            return option
+
+
+
+    async def delete_option(
+        self,
+        option_id: int
+    ) -> int | None:
+        async with self.db.session_factory() as session:
+            option = await session.get(
+                DialogOption,
+                option_id
+            )
+
+            if option is None:
+                return None
+
+            dialog_id = option.dialog_id
+
+            await session.delete(option)
+            await session.commit()
+
+            return dialog_id
+
+    async def move_option(
+        self,
+        option_id: int,
+        direction: int
+    ) -> int | None:
+        async with self.db.session_factory() as session:
+            option = await session.get(
+                DialogOption,
+                option_id
+            )
+
+            if option is None:
+                return None
+
+            result = await session.execute(
+                select(DialogOption)
+                .where(
+                    DialogOption.dialog_id == option.dialog_id
+                )
+                .order_by(DialogOption.weight)
+            )
+
+            options = list(result.scalars())
+
+            try:
+                current_index = next(
+                    i
+                    for i, item in enumerate(options)
+                    if item.id == option_id
+                )
+            except StopIteration:
+                return None
+
+            new_index = current_index + direction
+
+            # Уже в начале/конце
+            if new_index < 0 or new_index >= len(options):
+                return option.dialog_id
+
+            other_option = options[new_index]
+
+            option.weight, other_option.weight = (
+                other_option.weight,
+                option.weight
+            )
+
+            await session.commit()
+
+            return option.dialog_id
+
+    async def normalize_option_weights(self):
+        async with self.db.session_factory() as session:
+            result = await session.execute(
+                select(DialogOption)
+                .order_by(
+                    DialogOption.dialog_id,
+                    DialogOption.id
+                )
+            )
+
+            options = list(result.scalars())
+
+            current_dialog_id = None
+            weight = 0
+
+            for option in options:
+                if option.dialog_id != current_dialog_id:
+                    current_dialog_id = option.dialog_id
+                    weight = 1
+                else:
+                    weight += 1
+
+                option.weight = weight
+
+            await session.commit()

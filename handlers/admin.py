@@ -367,6 +367,18 @@ async def show_dialog_option(
     option: DialogOption,
     edit: bool = False
 ):
+    options = option.dialog.options
+
+    current_index = next(
+        i
+        for i, item in enumerate(options)
+        if item.id == option.id
+    )
+
+    is_first = current_index == 0
+    is_last = current_index == len(options) - 1
+    is_only = len(options) == 1
+
     text = (
         f"<b>Кнопка:</b> {option.text.text}\n"
         f"<b>Следующий диалог:</b> "
@@ -387,30 +399,33 @@ async def show_dialog_option(
         callback_data=f"admin:dialogs:option:delete:{option.id}"
     )
 
-    builder.button(
-        text="Переместить вверх",
-        callback_data=f"admin:dialogs:option:up:{option.id}"
-    )
+    if not is_only and not is_first:
+        builder.button(
+            text="Переместить вверх",
+            callback_data=f"admin:dialogs:option:up:{option.id}"
+        )
 
-    builder.button(
-        text="Переместить вниз",
-        callback_data=f"admin:dialogs:option:down:{option.id}"
-    )
+    if not is_only and not is_last:
+        builder.button(
+            text="Переместить вниз",
+            callback_data=f"admin:dialogs:option:down:{option.id}"
+        )
 
-    builder.button(
-        text="Связанный диалог",
-        callback_data=f"admin:dialogs:view:{option.next_dialog_id}"
-    )
+    if option.next_dialog_id is not None:
+        builder.button(
+            text="Связанный диалог",
+            callback_data=f"admin:dialogs:view:{option.next_dialog_id}"
+        )
 
-    builder.button(
-        text="Отвязать диалог",
-        callback_data=f"admin:dialogs:option:unlink:{option.id}"
-    )
-
-    builder.button(
-        text="Назначить диалог",
-        callback_data=f"admin:dialogs:option:link:{option.id}"
-    )
+        builder.button(
+            text="Отвязать диалог",
+            callback_data=f"admin:dialogs:option:unlink:{option.id}"
+        )
+    else:
+        builder.button(
+            text="Назначить диалог",
+            callback_data=f"admin:dialogs:option:link:{option.id}"
+        )
 
     builder.button(
         text="Назад",
@@ -431,6 +446,7 @@ async def show_dialog_option(
             reply_markup=builder.as_markup(),
             parse_mode="HTML"
         )
+
 
 
 @admin_router.callback_query(
@@ -536,4 +552,159 @@ async def edit_dialog_option_text(
     await show_dialog_option(
         message,
         option
+    )
+
+@admin_router.callback_query(
+    F.data.regexp(r"^admin:dialogs:option:delete:\d+$")
+)
+async def delete_dialog_option_confirm_callback(
+    callback: CallbackQuery
+):
+    await callback.answer()
+
+    option_id = int(callback.data.split(":")[-1])
+
+    option = await game.dialogs.get_option_by_id(option_id)
+
+    if option is None:
+        await callback.message.edit_text(
+            "⚠️ Кнопка не найдена."
+        )
+        return
+
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text="Подтвердить",
+        callback_data=f"admin:dialogs:option:delete:confirm:{option_id}"
+    )
+
+    builder.button(
+        text="Отмена",
+        callback_data=f"admin:dialogs:option:view:{option_id}"
+    )
+
+    builder.adjust(1)
+
+    await callback.message.edit_text(
+        f'Вы действительно хотите удалить кнопку '
+        f'"{option.text.text}"?',
+        reply_markup=builder.as_markup(),
+        parse_mode="HTML"
+    )
+
+
+
+@admin_router.callback_query(
+    F.data.regexp(r"^admin:dialogs:option:delete:confirm:\d+$")
+)
+async def delete_dialog_option_callback(
+    callback: CallbackQuery,
+    state: FSMContext
+):
+    await callback.answer()
+
+    option_id = int(callback.data.split(":")[-1])
+
+    dialog_id = await game.dialogs.delete_option(
+        option_id
+    )
+
+    if dialog_id is None:
+        await callback.message.edit_text(
+            "⚠️ Кнопка не найдена."
+        )
+        return
+
+    await state.clear()
+
+    dialog = await game.dialogs.get_by_id(dialog_id)
+
+    if dialog is None:
+        await callback.message.edit_text(
+            "⚠️ Диалог не найден."
+        )
+        return
+
+    await show_dialog(
+        callback.message,
+        dialog,
+        edit=True
+    )
+
+@admin_router.callback_query(
+    F.data.regexp(r"^admin:dialogs:option:up:\d+$")
+)
+async def move_dialog_option_up_callback(
+    callback: CallbackQuery,
+    state: FSMContext
+):
+    await callback.answer()
+
+    option_id = int(callback.data.split(":")[-1])
+
+    dialog_id = await game.dialogs.move_option(
+        option_id=option_id,
+        direction=-1
+    )
+
+    if dialog_id is None:
+        await callback.message.edit_text(
+            "⚠️ Кнопка не найдена."
+        )
+        return
+
+    await state.clear()
+
+    dialog = await game.dialogs.get_by_id(dialog_id)
+
+    if dialog is None:
+        await callback.message.edit_text(
+            "⚠️ Диалог не найден."
+        )
+        return
+
+    await show_dialog(
+        callback.message,
+        dialog,
+        edit=True
+    )
+
+
+@admin_router.callback_query(
+    F.data.regexp(r"^admin:dialogs:option:down:\d+$")
+)
+async def move_dialog_option_down_callback(
+    callback: CallbackQuery,
+    state: FSMContext
+):
+    await callback.answer()
+
+    option_id = int(callback.data.split(":")[-1])
+
+    dialog_id = await game.dialogs.move_option(
+        option_id=option_id,
+        direction=1
+    )
+
+    if dialog_id is None:
+        await callback.message.edit_text(
+            "⚠️ Кнопка не найдена."
+        )
+        return
+
+    await state.clear()
+
+    dialog = await game.dialogs.get_by_id(dialog_id)
+
+    if dialog is None:
+        await callback.message.edit_text(
+            "⚠️ Диалог не найден."
+        )
+        return
+
+    await show_dialog(
+        callback.message,
+        dialog,
+        edit=True
     )

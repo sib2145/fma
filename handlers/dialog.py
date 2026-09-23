@@ -28,8 +28,6 @@ async def main(message: Message, edit = False):
     
     builder = InlineKeyboardBuilder()
     
-    options = sorted(dialog.options, key=lambda option: option.weight or 0)
-    
     for option in dialog.options:
         builder.button(text = await db.GetLocaleText(option.text_id), callback_data = "dialog:button1")
         
