@@ -2,32 +2,38 @@ import asyncio
 
 from instances.db import db
 
+from services.player import PlayerService
+
 class Game:
     def __init__(self):
         self.is_running = False
         print("Game init")
 
     async def run(self):
-        print("Game running...")
+        print("Game engine running...")
         
-        await db.connect();
+        self.players = PlayerService(db)
         
         self.is_running = True
+        
+        print("Game engine run")
 
         while self.is_running:
             self.update()
             await asyncio.sleep(1)
 
     def update(self):
-        print("Game updated тик")
+        pass
+        #print("Game updated тик")
 
     async def stop(self):
         await db.close();
         self.is_running = False
-        print("Game stop")
+        print("Game engine stopped")
 
     def handle_action(self, player_id, action, data=None):
         return f"Игрок {player_id} сделал действие: {action}"
         
     async def register_account(self, telegram_id, locale_id = 1):
-        return await db.Execute("INSERT INTO `players`(telegram_id, locale_id) VALUES(?, ?)", (telegram_id, locale_id))
+        pass
+        #return await db.Execute("INSERT INTO `players`(telegram_id, locale_id) VALUES(?, ?)", (telegram_id, locale_id))
