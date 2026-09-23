@@ -3,6 +3,7 @@ import asyncio
 from instances.db import db
 
 from services.player import PlayerService
+from services.dialog import DialogService
 
 class Game:
     def __init__(self):
@@ -13,6 +14,7 @@ class Game:
         print("Game engine running...")
         
         self.players = PlayerService(db)
+        self.dialogs = DialogService(db)
         
         self.is_running = True
         
@@ -33,7 +35,3 @@ class Game:
 
     def handle_action(self, player_id, action, data=None):
         return f"Игрок {player_id} сделал действие: {action}"
-        
-    async def register_account(self, telegram_id, locale_id = 1):
-        pass
-        #return await db.Execute("INSERT INTO `players`(telegram_id, locale_id) VALUES(?, ?)", (telegram_id, locale_id))

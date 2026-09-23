@@ -10,6 +10,8 @@ import configparser
 from textwrap import dedent #Убирает отступы в тексте
 
 from handlers.welcome import welcome_router
+from handlers.dialog import dialog_router
+from handlers.admin import admin_router
 from handlers.basic_handlers import router
 
 from instances.game import game
@@ -114,6 +116,15 @@ async def console():
             print("help   - список команд")
             print("status - состояние игры")
             print("Enter  - остановить программу")
+            
+        elif command == "t":
+            print("Тестовая команда")
+
+            try:
+                dialog = await game.dialogs.get_by_id(1)
+                print(dialog.id)
+            except Exception as e:
+                print(f"Ошибка: {type(e).__name__}: {e}")
 
         elif command == "status":
             print("Игра работает")
@@ -250,6 +261,8 @@ async def main():
 
     try:
         dp.include_router(welcome_router)
+        dp.include_router(dialog_router)
+        dp.include_router(admin_router)
         dp.include_router(router)
 
         await bot.delete_webhook(drop_pending_updates=True)

@@ -18,6 +18,13 @@ ALLOWED_USERS = {
     if user_id.strip()
 }
 
+admin_users = config["access"].get("admin_users", "")
+ADMIN_USERS = {
+    int(user_id.strip())
+    for user_id in admin_users.split(",")
+    if user_id.strip()
+}
+
 welcome_router = Router()
 
 # Главное меню
@@ -25,12 +32,22 @@ async def start_menu(message: Message, edit = False):
     
     text = await db.GetLocaleText(5000)
     
+    player = game.players.get_by_telegram_id(message.chat.id)
+    
     builder = InlineKeyboardBuilder()
     
     builder.button(text = await db.GetLocaleText(1), callback_data = "welcome:how_interest") # Что интересного
-    builder.button(text = await db.GetLocaleText(2), callback_data = "welcome:create_account_rules_short") # Создать аккаунт - краткие правила
+    
+    if player == None: 
+        builder.button(text = await db.GetLocaleText(2), callback_data = "welcome:create_account_rules_short") # Создать аккаунт - краткие правила
+    else:
+        builder.button(text = await db.GetLocaleText(9), callback_data = "welcome:enter_world") # Войти в мир игры
+    
     builder.button(text = await db.GetLocaleText(3), callback_data = "welcome:rating") # Рейтинг игроков
     builder.button(text = await db.GetLocaleText(4), callback_data = "welcome:world_stat") # Статистика по миру
+    
+    if message.chat.id in ADMIN_USERS:
+        builder.button(text = await db.GetLocaleText(10), callback_data = "admin:main") # Админка
     
     builder.adjust(1)
     
@@ -129,8 +146,32 @@ async def create_account_confirm(callback: CallbackQuery):
     await callback.answer()
     
     telegram_id = callback.from_user.id
-    player_id = await game.register_account(telegram_id)
+    player = await game.players.register(telegram_id)
     
-    if player_id > 0:
-        text = f"Аккаунт для пользователя {telegram_id} создан. Игровой id: {player_id}"
-        await callback.message.edit_text(text)
+    from handlers.dialog import main as dialog_show
+    await dialog_show(callback.message, True)
+    
+    if player != None:
+        pass
+        #text = f"Аккаунт для пользователя {telegram_id} создан. Игровой id: {player.id}"
+        #await callback.message.edit_text(text)
+        
+# Войти в мир игры (переадресация на нужное меню)
+async def enter_world(message: Message, edit = False):
+    player = await game.players.get_by_telegram_id(message.chat.id)
+    
+    if player.current_dialog_id != None:
+        from handlers.dialog import main as dialog_show
+        await dialog_show(message, edit)
+    else:
+        await message.answer("Игровое меню")
+        
+
+@welcome_router.callback_query(F.data=="welcome:enter_world")
+async def enter_world_callback(callback: CallbackQuery):
+    await callback.answer()
+    await enter_world(callback.message, True)
+    
+@welcome_router.message(F.text == "/resume")
+async def enter_world_command(message: Message):
+    await enter_world(message)
