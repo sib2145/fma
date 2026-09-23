@@ -35,3 +35,4 @@ class Dialog(Base):
         back_populates="dialog",
         foreign_keys="DialogOption.dialog_id"
     )
+    

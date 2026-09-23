@@ -15,6 +15,8 @@ from instances.db import db
 
 from models.dialog_option import DialogOption
 
+from aiogram import Bot
+
 config = configparser.ConfigParser()
 config.read("config.ini")
 
@@ -47,6 +49,9 @@ class AddDialogOptionState(StatesGroup):
     
 class EditDialogOptionState(StatesGroup):
     waiting_for_text = State()
+    
+class LinkDialogOptionState(StatesGroup):
+    waiting_for_dialog_id = State()
 
 
 
@@ -362,6 +367,21 @@ async def add_dialog_option_text(
     if dialog is not None:
         await show_dialog(message, dialog)
 
+def truncate_text(text: str, max_length: int = 200) -> str:
+    if len(text) <= max_length:
+        return text
+
+    truncated = text[:max_length]
+
+    # Обрезаем до последнего пробела
+    space_index = truncated.rfind(" ")
+
+    if space_index > 0:
+        truncated = truncated[:space_index]
+
+    return truncated + "..."
+
+
 async def show_dialog_option(
     message: Message,
     option: DialogOption,
@@ -379,10 +399,24 @@ async def show_dialog_option(
     is_last = current_index == len(options) - 1
     is_only = len(options) == 1
 
+    if option.next_dialog is not None:
+        next_dialog_text = truncate_text(
+            option.next_dialog.text.text
+        )
+
+        next_dialog_line = (
+            f"<b>Следующий диалог</b> (ID: {option.next_dialog_id}): {next_dialog_text}"
+        )
+    else:
+        next_dialog_line = (
+            "<b>Следующий диалог:</b> Нет"
+        )
+
     text = (
         f"<b>Кнопка:</b> {option.text.text}\n"
-        f"<b>Следующий диалог:</b> "
+        f"{next_dialog_line}"
     )
+
 
     if option.next_dialog_id is not None:
         text += str(option.next_dialog_id)
@@ -706,5 +740,225 @@ async def move_dialog_option_down_callback(
     await show_dialog(
         callback.message,
         dialog,
+        edit=True
+    )
+
+async def ask_next_dialog_id(
+    bot: Bot,
+    chat_id: int,
+    message_id: int,
+    option_id: int,
+    error: str | None = None
+):
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text="Отмена",
+        callback_data=f"admin:dialogs:option:view:{option_id}"
+    )
+
+    builder.adjust(1)
+
+    text = ""
+
+    if error:
+        text += f"⚠️ {error}\n\n"
+
+    text += "Введите ID следующего диалога:"
+
+    await bot.edit_message_text(
+        chat_id=chat_id,
+        message_id=message_id,
+        text=text,
+        reply_markup=builder.as_markup(),
+        parse_mode="HTML"
+    )
+
+@admin_router.callback_query(
+    F.data.regexp(r"^admin:dialogs:option:link:\d+$")
+)
+async def link_dialog_option_callback(
+    callback: CallbackQuery,
+    state: FSMContext
+):
+    await callback.answer()
+
+    option_id = int(callback.data.split(":")[-1])
+
+    await state.set_state(
+        LinkDialogOptionState.waiting_for_dialog_id
+    )
+
+    await state.update_data(
+        option_id=option_id,
+        message_id=callback.message.message_id,
+        chat_id=callback.message.chat.id
+    )
+
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text="Отмена",
+        callback_data=f"admin:dialogs:option:view:{option_id}"
+    )
+
+    builder.adjust(1)
+
+    await callback.message.edit_text(
+        "Введите ID следующего диалога:",
+        reply_markup=builder.as_markup(),
+        parse_mode="HTML"
+    )
+
+@admin_router.message(
+    LinkDialogOptionState.waiting_for_dialog_id,
+    F.text
+)
+async def link_dialog_option_id(
+    message: Message,
+    state: FSMContext
+):
+    data = await state.get_data()
+
+    option_id = data["option_id"]
+    message_id = data["message_id"]
+    chat_id = data["chat_id"]
+
+    try:
+        next_dialog_id = int(message.text.strip())
+    except ValueError:
+        await ask_next_dialog_id(
+            bot=message.bot,
+            chat_id=chat_id,
+            message_id=message_id,
+            option_id=option_id,
+            error="ID диалога должен быть числом."
+        )
+        return
+
+    dialog = await game.dialogs.get_by_id(
+        next_dialog_id
+    )
+
+    if dialog is None:
+        await ask_next_dialog_id(
+            bot=message.bot,
+            chat_id=chat_id,
+            message_id=message_id,
+            option_id=option_id,
+            error="Диалог с таким ID не найден."
+        )
+        return
+
+    updated = await game.dialogs.set_next_dialog(
+        option_id=option_id,
+        next_dialog_id=next_dialog_id
+    )
+
+    if not updated:
+        await state.clear()
+
+        await message.answer(
+            "⚠️ Кнопка не найдена."
+        )
+        return
+
+    await state.clear()
+
+    option = await game.dialogs.get_option_by_id(
+        option_id
+    )
+
+    if option is None:
+        await message.answer(
+            "⚠️ Кнопка не найдена."
+        )
+        return
+
+    await show_dialog_option(
+        message,
+        option
+    )
+
+@admin_router.callback_query(
+    F.data.regexp(r"^admin:dialogs:option:unlink:\d+$")
+)
+async def unlink_dialog_confirm_callback(
+    callback: CallbackQuery
+):
+    await callback.answer()
+
+    option_id = int(callback.data.split(":")[-1])
+
+    option = await game.dialogs.get_option_by_id(
+        option_id
+    )
+
+    if option is None:
+        await callback.message.edit_text(
+            "⚠️ Кнопка не найдена."
+        )
+        return
+
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text="Подтвердить",
+        callback_data=(
+            f"admin:dialogs:option:unlink:confirm:{option_id}"
+        )
+    )
+
+    builder.button(
+        text="Отмена",
+        callback_data=f"admin:dialogs:option:view:{option_id}"
+    )
+
+    builder.adjust(1)
+
+    await callback.message.edit_text(
+        "Вы действительно хотите отвязать "
+        "связанный диалог?",
+        reply_markup=builder.as_markup(),
+        parse_mode="HTML"
+    )
+
+
+@admin_router.callback_query(
+    F.data.regexp(r"^admin:dialogs:option:unlink:confirm:\d+$")
+)
+async def unlink_dialog_callback(
+    callback: CallbackQuery,
+    state: FSMContext
+):
+    await callback.answer()
+
+    option_id = int(callback.data.split(":")[-1])
+
+    success = await game.dialogs.unlink_dialog(
+        option_id
+    )
+
+    if not success:
+        await callback.message.edit_text(
+            "⚠️ Кнопка не найдена."
+        )
+        return
+
+    await state.clear()
+
+    option = await game.dialogs.get_option_by_id(
+        option_id
+    )
+
+    if option is None:
+        await callback.message.edit_text(
+            "⚠️ Кнопка не найдена."
+        )
+        return
+
+    await show_dialog_option(
+        callback.message,
+        option,
         edit=True
     )

@@ -109,6 +109,9 @@ class DialogService:
                     selectinload(DialogOption.text),
                     selectinload(DialogOption.dialog)
                     .selectinload(Dialog.options)
+                    .selectinload(DialogOption.text),
+                    selectinload(DialogOption.next_dialog)
+                    .selectinload(Dialog.text)
                 )
                 .where(DialogOption.id == option_id)
             )
@@ -219,3 +222,51 @@ class DialogService:
                 option.weight = weight
 
             await session.commit()
+
+
+    async def set_next_dialog(
+        self,
+        option_id: int,
+        next_dialog_id: int
+    ) -> bool:
+        async with self.db.session_factory() as session:
+            option = await session.get(
+                DialogOption,
+                option_id
+            )
+
+            if option is None:
+                return False
+
+            dialog = await session.get(
+                Dialog,
+                next_dialog_id
+            )
+
+            if dialog is None:
+                return False
+
+            option.next_dialog_id = next_dialog_id
+
+            await session.commit()
+
+            return True
+
+    async def unlink_dialog(
+        self,
+        option_id: int
+    ) -> bool:
+        async with self.db.session_factory() as session:
+            option = await session.get(
+                DialogOption,
+                option_id
+            )
+
+            if option is None:
+                return False
+
+            option.next_dialog_id = None
+
+            await session.commit()
+
+            return True
