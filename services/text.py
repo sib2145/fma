@@ -34,3 +34,29 @@ class TextService:
         await session.flush()
 
         return text_model
+
+    async def update(
+        self,
+        text_id: int,
+        text: str,
+        locale_id: int = 1
+    ) -> bool:
+        async with self.db.session_factory() as session:
+            result = await session.execute(
+                select(Text)
+                .where(
+                    Text.id == text_id,
+                    Text.locale_id == locale_id
+                )
+            )
+
+            text_model = result.scalar_one_or_none()
+
+            if text_model is None:
+                return False
+
+            text_model.text = text
+
+            await session.commit()
+
+            return True

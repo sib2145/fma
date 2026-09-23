@@ -13,6 +13,8 @@ import configparser
 from instances.game import game
 from instances.db import db
 
+from models.dialog_option import DialogOption
+
 config = configparser.ConfigParser()
 config.read("config.ini")
 
@@ -42,6 +44,10 @@ class ViewDialogState(StatesGroup):
     
 class AddDialogOptionState(StatesGroup):
     waiting_for_text = State()
+    
+class EditDialogOptionState(StatesGroup):
+    waiting_for_text = State()
+
 
 
 async def main(message: Message, edit = False):
@@ -265,6 +271,12 @@ async def show_dialog(
         text="Добавить кнопку",
         callback_data=f"admin:dialogs:option:add:{dialog.id}"
     )
+    
+    for option in dialog.options:
+        builder.button(
+            text=f"Кнопка: {option.text.text}",
+            callback_data=f"admin:dialogs:option:view:{option.id}"
+        )
 
     builder.button(
         text="Назад",
@@ -349,3 +361,179 @@ async def add_dialog_option_text(
 
     if dialog is not None:
         await show_dialog(message, dialog)
+
+async def show_dialog_option(
+    message: Message,
+    option: DialogOption,
+    edit: bool = False
+):
+    text = (
+        f"<b>Кнопка:</b> {option.text.text}\n"
+        f"<b>Следующий диалог:</b> "
+    )
+
+    if option.next_dialog_id is not None:
+        text += str(option.next_dialog_id)
+
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text="Редактировать текст",
+        callback_data=f"admin:dialogs:option:edit:{option.id}"
+    )
+
+    builder.button(
+        text="Удалить кнопку",
+        callback_data=f"admin:dialogs:option:delete:{option.id}"
+    )
+
+    builder.button(
+        text="Переместить вверх",
+        callback_data=f"admin:dialogs:option:up:{option.id}"
+    )
+
+    builder.button(
+        text="Переместить вниз",
+        callback_data=f"admin:dialogs:option:down:{option.id}"
+    )
+
+    builder.button(
+        text="Связанный диалог",
+        callback_data=f"admin:dialogs:view:{option.next_dialog_id}"
+    )
+
+    builder.button(
+        text="Отвязать диалог",
+        callback_data=f"admin:dialogs:option:unlink:{option.id}"
+    )
+
+    builder.button(
+        text="Назначить диалог",
+        callback_data=f"admin:dialogs:option:link:{option.id}"
+    )
+
+    builder.button(
+        text="Назад",
+        callback_data=f"admin:dialogs:view:{option.dialog_id}"
+    )
+
+    builder.adjust(1)
+
+    if edit:
+        await message.edit_text(
+            text,
+            reply_markup=builder.as_markup(),
+            parse_mode="HTML"
+        )
+    else:
+        await message.answer(
+            text,
+            reply_markup=builder.as_markup(),
+            parse_mode="HTML"
+        )
+
+
+@admin_router.callback_query(
+    F.data.startswith("admin:dialogs:option:view:")
+)
+async def view_dialog_option_callback(
+    callback: CallbackQuery,
+    state: FSMContext
+):
+    await callback.answer()
+
+    option_id = int(callback.data.split(":")[-1])
+
+    option = await game.dialogs.get_option_by_id(option_id)
+
+    if option is None:
+        await callback.message.edit_text(
+            "⚠️ Кнопка не найдена."
+        )
+        return
+
+    await state.clear()
+
+    await show_dialog_option(
+        callback.message,
+        option,
+        edit=True
+    )
+
+@admin_router.callback_query(
+    F.data.startswith("admin:dialogs:option:edit:")
+)
+async def edit_dialog_option_callback(
+    callback: CallbackQuery,
+    state: FSMContext
+):
+    await callback.answer()
+
+    option_id = int(callback.data.split(":")[-1])
+
+    await state.update_data(
+        option_id=option_id
+    )
+
+    await state.set_state(
+        EditDialogOptionState.waiting_for_text
+    )
+
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text="Отмена",
+        callback_data=f"admin:dialogs:option:view:{option_id}"
+    )
+
+    builder.adjust(1)
+
+    await callback.message.edit_text(
+        "Введите новый текст кнопки:",
+        reply_markup=builder.as_markup(),
+        parse_mode="HTML"
+    )
+
+@admin_router.message(
+    EditDialogOptionState.waiting_for_text,
+    F.text
+)
+async def edit_dialog_option_text(
+    message: Message,
+    state: FSMContext
+):
+    data = await state.get_data()
+
+    option_id = data["option_id"]
+
+    option = await game.dialogs.get_option_by_id(option_id)
+
+    if option is None:
+        await state.clear()
+
+        await message.answer(
+            "⚠️ Кнопка не найдена."
+        )
+        return
+
+    updated = await game.texts.update(
+        text_id=option.text_id,
+        text=message.text
+    )
+
+    if not updated:
+        await state.clear()
+
+        await message.answer(
+            "⚠️ Текст кнопки не найден."
+        )
+        return
+
+    await state.clear()
+
+    option = await game.dialogs.get_option_by_id(option_id)
+
+    await show_dialog_option(
+        message,
+        option
+    )

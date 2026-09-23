@@ -17,6 +17,7 @@ class DialogService:
                 .options(
                     selectinload(Dialog.text),
                     selectinload(Dialog.options)
+                        .selectinload(DialogOption.text)
                 )
                 .where(Dialog.id == dialog_id)
             )
@@ -59,6 +60,17 @@ class DialogService:
             if dialog is None:
                 return None
 
+            result = await session.execute(
+                select(DialogOption.weight)
+                .where(DialogOption.dialog_id == dialog_id)
+                .order_by(DialogOption.weight.desc())
+                .limit(1)
+            )
+
+            max_weight = result.scalar_one_or_none()
+
+            weight = (max_weight or 0) + 1
+
             text_model = await self.text_service.create(
                 session=session,
                 text=text,
@@ -67,7 +79,8 @@ class DialogService:
 
             option = DialogOption(
                 dialog_id=dialog_id,
-                text_id=text_model.id
+                text_id=text_model.id,
+                weight=weight
             )
 
             session.add(option)
@@ -76,3 +89,19 @@ class DialogService:
             await session.commit()
 
             return option.id
+
+
+    async def get_option_by_id(
+        self,
+        option_id: int
+    ) -> DialogOption | None:
+        async with self.db.session_factory() as session:
+            result = await session.execute(
+                select(DialogOption)
+                .options(
+                    selectinload(DialogOption.text)
+                )
+                .where(DialogOption.id == option_id)
+            )
+
+            return result.scalar_one_or_none()

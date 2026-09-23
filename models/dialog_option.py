@@ -1,9 +1,10 @@
 from typing import Optional
 
-from sqlalchemy import ForeignKey, Integer, Text
+from sqlalchemy import ForeignKey, Integer, Text as SQLText
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import Base
+from models.text import Text
 
 
 class DialogOption(Base):
@@ -20,7 +21,7 @@ class DialogOption(Base):
     )
 
     condition: Mapped[Optional[str]] = mapped_column(
-        Text,
+        SQLText,
         nullable=True
     )
 
@@ -30,6 +31,7 @@ class DialogOption(Base):
     )
 
     text_id: Mapped[int] = mapped_column(
+        ForeignKey("texts.id"),
         nullable=False
     )
 
@@ -42,6 +44,11 @@ class DialogOption(Base):
         "Dialog",
         back_populates="options",
         foreign_keys=[dialog_id]
+    )
+
+    text: Mapped["Text"] = relationship(
+        "Text",
+        foreign_keys=[text_id]
     )
 
     next_dialog: Mapped[Optional["Dialog"]] = relationship(
