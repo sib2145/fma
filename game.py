@@ -3,6 +3,7 @@ import asyncio
 from instances.db import db
 
 from services.player import PlayerService
+from services.text import TextService
 from services.dialog import DialogService
 
 class Game:
@@ -14,7 +15,8 @@ class Game:
         print("Game engine running...")
         
         self.players = PlayerService(db)
-        self.dialogs = DialogService(db)
+        self.texts = TextService(db)
+        self.dialogs = DialogService(db, self.texts)
         
         self.is_running = True
         

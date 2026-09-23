@@ -1,9 +1,10 @@
-from typing import Optional
-
-from sqlalchemy import Text
+from sqlalchemy import ForeignKey, Text as SQLText
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import Base
+from models.text import Text
+
+from typing import Optional
 
 
 class Dialog(Base):
@@ -15,12 +16,18 @@ class Dialog(Base):
     )
 
     text_id: Mapped[int] = mapped_column(
+        ForeignKey("texts.id"),
         nullable=False
     )
 
     image: Mapped[Optional[str]] = mapped_column(
-        Text,
+        SQLText,
         nullable=True
+    )
+
+    text: Mapped["Text"] = relationship(
+        "Text",
+        foreign_keys=[text_id]
     )
 
     options: Mapped[list["DialogOption"]] = relationship(
