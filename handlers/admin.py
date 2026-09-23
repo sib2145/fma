@@ -39,6 +39,10 @@ class AddDialogState(StatesGroup):
     
 class ViewDialogState(StatesGroup):
     waiting_for_id = State()
+    
+class AddDialogOptionState(StatesGroup):
+    waiting_for_text = State()
+
 
 async def main(message: Message, edit = False):
     text = await db.GetLocaleText(5004)
@@ -203,9 +207,38 @@ async def view_dialog_id(
     await show_dialog(message, dialog)
 
 
+@admin_router.callback_query(
+    F.data.startswith("admin:dialogs:view:")
+)
+async def open_dialog_callback(
+    callback: CallbackQuery,
+    state: FSMContext
+):
+    await callback.answer()
+
+    dialog_id = int(callback.data.split(":")[-1])
+
+    dialog = await game.dialogs.get_by_id(dialog_id)
+
+    if dialog is None:
+        await callback.message.edit_text(
+            "⚠️ Диалог не найден."
+        )
+        return
+
+    await state.clear()
+
+    await show_dialog(
+        callback.message,
+        dialog,
+        edit=True
+    )
+
+
 async def show_dialog(
     message: Message,
-    dialog
+    dialog,
+    edit: bool = False
 ):
     text = dialog.text.text
 
@@ -229,8 +262,8 @@ async def show_dialog(
     )
 
     builder.button(
-        text="Кнопки",
-        callback_data=f"admin:dialogs:options:{dialog.id}"
+        text="Добавить кнопку",
+        callback_data=f"admin:dialogs:option:add:{dialog.id}"
     )
 
     builder.button(
@@ -240,8 +273,79 @@ async def show_dialog(
 
     builder.adjust(1)
 
-    await message.answer(
-        text,
+    if edit:
+        await message.edit_text(
+            text,
+            reply_markup=builder.as_markup(),
+            parse_mode="HTML"
+        )
+    else:
+        await message.answer(
+            text,
+            reply_markup=builder.as_markup(),
+            parse_mode="HTML"
+        )
+
+
+
+@admin_router.callback_query(
+    F.data.startswith("admin:dialogs:option:add:")
+)
+async def add_dialog_option_callback(
+    callback: CallbackQuery,
+    state: FSMContext
+):
+    await callback.answer()
+
+    dialog_id = int(
+        callback.data.split(":")[-1]
+    )
+
+    await state.update_data(
+        dialog_id=dialog_id
+    )
+
+    await state.set_state(
+        AddDialogOptionState.waiting_for_text
+    )
+
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text="Отмена",
+        callback_data=f"admin:dialogs:view:{dialog_id}"
+    )
+
+    builder.adjust(1)
+
+    await callback.message.edit_text(
+        "Введите текст кнопки:",
         reply_markup=builder.as_markup(),
         parse_mode="HTML"
     )
+
+
+@admin_router.message(
+    AddDialogOptionState.waiting_for_text,
+    F.text
+)
+async def add_dialog_option_text(
+    message: Message,
+    state: FSMContext
+):
+    data = await state.get_data()
+
+    dialog_id = data["dialog_id"]
+    option_text = message.text
+
+    await game.dialogs.add_option(
+        dialog_id=dialog_id,
+        text=option_text
+    )
+
+    await state.clear()
+
+    dialog = await game.dialogs.get_by_id(dialog_id)
+
+    if dialog is not None:
+        await show_dialog(message, dialog)
