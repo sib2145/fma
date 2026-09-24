@@ -18,6 +18,8 @@ from models.dialog_option import DialogOption
 
 from aiogram import Bot
 
+from textwrap import dedent
+
 config = configparser.ConfigParser()
 config.read("config.ini")
 
@@ -27,6 +29,10 @@ ADMIN_USERS = {
     for user_id in admin_users.split(",")
     if user_id.strip()
 }
+
+DIALOGS_PER_PAGE = 6
+DIALOG_LIST_TEXT_TRUNC_SIZE = 200
+DIALOG_LIST_BUTTON_TEXT_TRUNC_SIZE = 30
 
 
 class AdminFilter(BaseFilter):
@@ -1077,4 +1083,159 @@ async def unlink_dialog_callback(
         callback.message,
         option,
         edit=True
+    )
+
+@admin_router.callback_query(
+    F.data == "admin:dialogs:list"
+)
+async def dialogs_list_callback(
+    callback: CallbackQuery
+):
+    await callback.answer()
+
+    total = await game.dialogs.count()
+
+    if total <= DIALOGS_PER_PAGE:
+        await show_dialogs_list_page(
+            callback.message,
+            page=1,
+            total=total
+        )
+        return
+
+    builder = InlineKeyboardBuilder()
+
+    for start in range(1, total + 1, DIALOGS_PER_PAGE):
+        end = min(
+            start + DIALOGS_PER_PAGE - 1,
+            total
+        )
+
+        page = (start - 1) // DIALOGS_PER_PAGE + 1
+
+        builder.button(
+            text=f"Показать {start}-{end}",
+            callback_data=f"admin:dialogs:list:page:{page}"
+        )
+
+    builder.button(
+        text="Назад",
+        callback_data="admin:dialogs:main"
+    )
+
+    builder.adjust(1)
+
+    await callback.message.edit_text(
+        f"Всего диалогов: {total}\n\n"
+        "Выберите диапазон:",
+        reply_markup=builder.as_markup(),
+        parse_mode="HTML"
+    )
+
+
+async def show_dialogs_list_page(
+    message: Message,
+    page: int,
+    total: int | None = None
+):
+    if total is None:
+        total = await game.dialogs.count()
+
+    total_pages = max(
+        1,
+        (total + DIALOGS_PER_PAGE - 1) // DIALOGS_PER_PAGE
+    )
+
+    if page < 1 or page > total_pages:
+        page = 1
+
+    dialogs = await game.dialogs.get_page(
+        page=page,
+        per_page=DIALOGS_PER_PAGE
+    )
+
+    start = (page - 1) * DIALOGS_PER_PAGE + 1
+    end = start + len(dialogs) - 1
+
+    dialog_lines = []
+
+    for dialog in dialogs:
+        dialog_text = truncate_text(
+            dialog.text.text,
+            DIALOG_LIST_TEXT_TRUNC_SIZE
+        )
+
+        dialog_lines.append(
+            f"<b>{dialog.id}. (id: {dialog.id}):</b> {dialog_text}"
+        )
+        
+    dialog_lines = "\n\n".join(dialog_lines)
+
+    text = (dedent(f"""
+        Показаны диалоги {start}-{end} из {total}:
+        
+{dialog_lines}
+    """))
+
+    builder = InlineKeyboardBuilder()
+
+    # Предыдущая страница
+    if page > 1:
+        builder.button(
+            text="Предыдущая страница",
+            callback_data=f"admin:dialogs:list:page:{page - 1}"
+        )
+
+    # Следующая страница
+    if page < total_pages:
+        builder.button(
+            text="Следующая страница",
+            callback_data=f"admin:dialogs:list:page:{page + 1}"
+        )
+
+    # Диалоги
+    for dialog in dialogs:
+        dialog_text = truncate_text(
+            dialog.text.text,
+            DIALOG_LIST_BUTTON_TEXT_TRUNC_SIZE
+        )
+
+        builder.button(
+            text=f"{dialog.id}. {dialog_text}",
+            callback_data=f"admin:dialogs:view:{dialog.id}"
+        )
+
+    # Назад
+    if total_pages == 1:
+        back_callback = "admin:dialogs:main"
+    else:
+        back_callback = "admin:dialogs:list"
+
+    builder.button(
+        text="Назад",
+        callback_data=back_callback
+    )
+
+    builder.adjust(1)
+
+    await message.edit_text(
+        text,
+        reply_markup=builder.as_markup(),
+        parse_mode="HTML"
+    )
+
+
+@admin_router.callback_query(
+    F.data.regexp(r"^admin:dialogs:list:page:\d+$")
+)
+async def dialogs_list_page_callback(
+    callback: CallbackQuery
+):
+    await callback.answer()
+
+    page = int(callback.data.split(":")[-1])
+
+    await show_dialogs_list_page(
+        callback.message,
+        page
     )

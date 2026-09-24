@@ -5,6 +5,12 @@ from models.dialog import Dialog
 from models.dialog_option import DialogOption
 
 
+from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
+
+from models.dialog import Dialog
+
+
 class DialogService:
     def __init__(self, db, text_service):
         self.db = db
@@ -270,3 +276,31 @@ class DialogService:
             await session.commit()
 
             return True
+
+    async def count(self) -> int:
+        async with self.db.session_factory() as session:
+            result = await session.execute(
+                select(func.count(Dialog.id))
+            )
+
+            return result.scalar_one()
+
+    async def get_page(
+        self,
+        page: int,
+        per_page: int
+    ) -> list[Dialog]:
+        async with self.db.session_factory() as session:
+            offset = (page - 1) * per_page
+
+            result = await session.execute(
+                select(Dialog)
+                .options(
+                    selectinload(Dialog.text)
+                )
+                .order_by(Dialog.id)
+                .offset(offset)
+                .limit(per_page)
+            )
+
+            return list(result.scalars())
