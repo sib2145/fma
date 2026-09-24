@@ -20,6 +20,9 @@ from aiogram import Bot
 
 from textwrap import dedent
 
+from html import escape
+
+
 config = configparser.ConfigParser()
 config.read("config.ini")
 
@@ -33,6 +36,8 @@ ADMIN_USERS = {
 DIALOGS_PER_PAGE = 6
 DIALOG_LIST_TEXT_TRUNC_SIZE = 200
 DIALOG_LIST_BUTTON_TEXT_TRUNC_SIZE = 30
+
+DIALOG_SEARCH_PER_PAGE = 6
 
 
 class AdminFilter(BaseFilter):
@@ -64,6 +69,9 @@ class EditDialogOptionState(StatesGroup):
 class LinkDialogOptionState(StatesGroup):
     waiting_for_dialog_id = State()
 
+class SearchDialogsState(StatesGroup):
+    waiting_for_text = State()
+    viewing_results = State()
 
 
 async def main(message: Message, edit = False):
@@ -1238,4 +1246,293 @@ async def dialogs_list_page_callback(
     await show_dialogs_list_page(
         callback.message,
         page
+    )
+
+
+@admin_router.callback_query(
+    F.data == "admin:dialogs:search"
+)
+async def search_dialogs_callback(
+    callback: CallbackQuery,
+    state: FSMContext
+):
+    await callback.answer()
+
+    await state.set_state(
+        SearchDialogsState.waiting_for_text
+    )
+
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text="Назад",
+        callback_data="admin:dialogs:main"
+    )
+
+    builder.adjust(1)
+
+    await callback.message.edit_text(
+        "Введите текст для поиска:",
+        reply_markup=builder.as_markup(),
+        parse_mode="HTML"
+    )
+
+    await state.update_data(
+        search_message_id=callback.message.message_id
+    )
+
+
+
+
+
+@admin_router.message(
+    SearchDialogsState.waiting_for_text,
+    F.text
+)
+async def search_dialogs(
+    message: Message,
+    state: FSMContext
+):
+    search_text = message.text.strip()
+
+    if not search_text:
+        return
+
+    data = await state.get_data()
+
+    search_message_id = data.get("search_message_id")
+
+    if not search_message_id:
+        await message.answer(
+            "Не удалось найти сообщение поиска."
+        )
+        return
+
+    dialogs = await game.dialogs.search(
+        search_text=search_text,
+        locale_id=1
+    )
+
+    safe_search_text = escape(search_text)
+
+    # Ничего не найдено
+    if not dialogs:
+        builder = InlineKeyboardBuilder()
+
+        builder.button(
+            text="Назад",
+            callback_data="admin:dialogs:main"
+        )
+
+        builder.adjust(1)
+
+        await message.bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=search_message_id,
+            text=dedent(f"""
+                По запросу «{safe_search_text}» ничего не найдено.
+
+                Введите текст для поиска:
+            """),
+            reply_markup=builder.as_markup(),
+            parse_mode="HTML"
+        )
+
+        # Остаёмся в состоянии ожидания нового поискового запроса
+        await state.set_state(
+            SearchDialogsState.waiting_for_text
+        )
+
+        return
+
+    # Результаты найдены
+    await state.set_state(
+        SearchDialogsState.viewing_results
+    )
+
+    await state.update_data(
+        search_text=search_text,
+        locale_id=1
+    )
+
+    await show_dialog_search_results(
+        message=message,
+        search_text=search_text,
+        page=1,
+        locale_id=1,
+        message_id=search_message_id
+    )
+
+
+
+
+
+async def show_dialog_search_results(
+    message: Message,
+    search_text: str,
+    page: int = 1,
+    locale_id: int = 1,
+    message_id: int | None = None
+):
+    dialogs = await game.dialogs.search(
+        search_text=search_text,
+        locale_id=locale_id
+    )
+
+    total = len(dialogs)
+
+    total_pages = max(
+        1,
+        (total + DIALOG_SEARCH_PER_PAGE - 1)
+        // DIALOG_SEARCH_PER_PAGE
+    )
+
+    if page < 1 or page > total_pages:
+        page = 1
+
+    start_index = (
+        page - 1
+    ) * DIALOG_SEARCH_PER_PAGE
+
+    page_dialogs = dialogs[
+        start_index:
+        start_index + DIALOG_SEARCH_PER_PAGE
+    ]
+
+    start = start_index + 1
+    end = start_index + len(page_dialogs)
+
+    dialog_lines = []
+
+    for dialog in page_dialogs:
+        dialog_text = truncate_text(
+            dialog.text.text,
+            DIALOG_LIST_TEXT_TRUNC_SIZE
+        )
+
+        dialog_text = escape(dialog_text)
+
+        dialog_lines.append(
+            f"<b>{dialog.id} (id: {dialog.id}):</b> "
+            f"{dialog_text}"
+        )
+
+    dialog_lines = "\n\n".join(dialog_lines)
+
+    safe_search_text = escape(search_text)
+
+    text = dedent(f"""
+        Результаты поиска: «{safe_search_text}»
+
+        Показаны результаты {start}-{end} из {total}:
+
+        {dialog_lines}
+    """)
+
+    builder = InlineKeyboardBuilder()
+
+    # Предыдущая страница
+    if page > 1:
+        builder.button(
+            text="Предыдущая страница",
+            callback_data=(
+                f"admin:dialogs:search:page:{page - 1}"
+            )
+        )
+
+    # Следующая страница
+    if page < total_pages:
+        builder.button(
+            text="Следующая страница",
+            callback_data=(
+                f"admin:dialogs:search:page:{page + 1}"
+            )
+        )
+
+    # Диалоги
+    for dialog in page_dialogs:
+        dialog_text = truncate_text(
+            dialog.text.text,
+            DIALOG_LIST_BUTTON_TEXT_TRUNC_SIZE
+        )
+
+        dialog_text = escape(dialog_text)
+
+        builder.button(
+            text=f"{dialog.id}. {dialog_text}",
+            callback_data=f"admin:dialogs:view:{dialog.id}"
+        )
+
+    builder.add(
+        InlineKeyboardButton(
+            text="Скопировать поисковый запрос",
+            copy_text=CopyTextButton(
+                text=search_text
+            )
+        )
+    )
+
+    # Назад к вводу поискового запроса
+    builder.button(
+        text="Новый поиск",
+        callback_data="admin:dialogs:search"
+    )
+    
+    # Назад к редактору
+    builder.button(
+        text="Назад",
+        callback_data="admin:dialogs:main"
+    )
+
+    builder.adjust(1)
+
+    if message_id is not None:
+        await message.bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=message_id,
+            text=text,
+            reply_markup=builder.as_markup(),
+            parse_mode="HTML"
+        )
+    else:
+        await message.answer(
+            text,
+            reply_markup=builder.as_markup(),
+            parse_mode="HTML"
+        )
+
+
+
+
+@admin_router.callback_query(
+    F.data.regexp(r"^admin:dialogs:search:page:\d+$")
+)
+async def search_dialogs_page_callback(
+    callback: CallbackQuery,
+    state: FSMContext
+):
+    await callback.answer()
+
+    page = int(
+        callback.data.split(":")[-1]
+    )
+
+    data = await state.get_data()
+
+    search_text = data.get("search_text")
+    locale_id = data.get("locale_id", 1)
+    search_message_id = data.get("search_message_id")
+
+    if not search_text or not search_message_id:
+        await callback.message.edit_text(
+            "⚠️ Поисковый запрос не найден."
+        )
+        return
+
+    await show_dialog_search_results(
+        message=callback.message,
+        search_text=search_text,
+        page=page,
+        locale_id=locale_id,
+        message_id=search_message_id
     )

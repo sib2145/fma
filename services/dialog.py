@@ -10,6 +10,11 @@ from sqlalchemy.orm import selectinload
 
 from models.dialog import Dialog
 
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+
+from models.text import Text
+
 
 class DialogService:
     def __init__(self, db, text_service):
@@ -301,6 +306,27 @@ class DialogService:
                 .order_by(Dialog.id)
                 .offset(offset)
                 .limit(per_page)
+            )
+
+            return list(result.scalars())
+
+    async def search(
+        self,
+        search_text: str,
+        locale_id: int = 1
+    ) -> list[Dialog]:
+        async with self.db.session_factory() as session:
+            result = await session.execute(
+                select(Dialog)
+                .join(Text, Dialog.text_id == Text.id)
+                .options(
+                    selectinload(Dialog.text)
+                )
+                .where(
+                    Text.locale_id == locale_id,
+                    Text.text.ilike(f"%{search_text}%")
+                )
+                .order_by(Dialog.id)
             )
 
             return list(result.scalars())
