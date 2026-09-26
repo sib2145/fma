@@ -17,10 +17,13 @@ CREATE TABLE IF NOT EXISTS "conditions" (
 	"dialog_id"	INTEGER,
 	"option_id"	INTEGER,
 	"condition_type_id"	INTEGER NOT NULL,
-	"operator_type_id"	INTEGER NOT NULL,
+	"operator_type_id"	INTEGER,
+	"weight"	INTEGER NOT NULL DEFAULT 1,
 	"value1"	TEXT,
 	"value2"	TEXT,
+	CONSTRAINT "cond_dial_id_weight" UNIQUE("dialog_id","weight"),
 	PRIMARY KEY("id" AUTOINCREMENT),
+	CONSTRAINT "cond_opt_id_weigth" UNIQUE("option_id","weight"),
 	CONSTRAINT "cond_cond_type_id" FOREIGN KEY("condition_type_id") REFERENCES "condition_types"("id"),
 	CONSTRAINT "cond_dialog_id" FOREIGN KEY("dialog_id") REFERENCES "dialogs"("id"),
 	CONSTRAINT "cond_oper_type_id" FOREIGN KEY("operator_type_id") REFERENCES "condition_operators"("id"),
@@ -40,8 +43,7 @@ CREATE TABLE IF NOT EXISTS "dialogs" (
 	"text_id"	INTEGER NOT NULL,
 	"image"	TEXT,
 	"next_dialog_id"	INTEGER,
-	PRIMARY KEY("id" AUTOINCREMENT),
-	FOREIGN KEY("next_dialog_id") REFERENCES ""
+	PRIMARY KEY("id" AUTOINCREMENT)
 );
 CREATE TABLE IF NOT EXISTS "locales" (
 	"id"	INTEGER NOT NULL,
@@ -79,14 +81,17 @@ INSERT INTO "condition_types" VALUES (1,16,1,'group begin');
 INSERT INTO "condition_types" VALUES (2,17,2,'group end');
 INSERT INTO "condition_types" VALUES (3,18,3,'option <x> selected in dialog <y>');
 INSERT INTO "condition_types" VALUES (4,19,4,'dialog <x> completed');
-INSERT INTO "condition_types" VALUES (5,20,5,'and');
-INSERT INTO "condition_types" VALUES (6,21,6,'or');
-INSERT INTO "condition_types" VALUES (7,22,7,'function result');
-INSERT INTO "condition_types" VALUES (8,23,8,'player flag <x> = <y>');
-INSERT INTO "dialog_options" VALUES (49,1,NULL,1,5007,NULL);
+INSERT INTO "condition_types" VALUES (5,21,6,'or');
+INSERT INTO "condition_types" VALUES (6,22,7,'function result');
+INSERT INTO "condition_types" VALUES (7,23,8,'player flag <x> = <y>');
+INSERT INTO "conditions" VALUES (1,2,NULL,4,1,1,'1',NULL);
+INSERT INTO "dialog_options" VALUES (49,1,NULL,1,5007,2);
+INSERT INTO "dialog_options" VALUES (50,2,NULL,1,5009,NULL);
 INSERT INTO "dialogs" VALUES (1,5006,NULL,NULL);
+INSERT INTO "dialogs" VALUES (2,5008,NULL,NULL);
 INSERT INTO "locales" VALUES (1,'ru');
-INSERT INTO "players" VALUES (9,6136061550,1,'2026-09-25 09:01:27.257004',NULL,1);
+INSERT INTO "player_dialog_choices" VALUES (20,9,1,49);
+INSERT INTO "players" VALUES (9,6136061550,1,'2026-09-25 09:01:27.257004',NULL,2);
 INSERT INTO "texts" VALUES (5000,1,'Привет тебе в игре 🔸️ <b>Fantasy Market</b> 🔸️! 
 Создай свой магазин в мире фэнтези и управляй им!
 
@@ -166,4 +171,9 @@ INSERT INTO "texts" VALUES (24,1,'= Равно');
 INSERT INTO "texts" VALUES (25,1,'<> Не равно');
 INSERT INTO "texts" VALUES (26,1,'<= Меньше или равно');
 INSERT INTO "texts" VALUES (27,1,'=> Больше или равно');
+INSERT INTO "texts" VALUES (5008,1,'Привет, мой старый знакомый!
+
+Мы давно не виделись. Несколько лет прошло с нашей последней встречи.');
+INSERT INTO "texts" VALUES (5009,1,'Поприветствовать в ответ');
+INSERT INTO "texts" VALUES (5010,1,'Продолжить');
 COMMIT;

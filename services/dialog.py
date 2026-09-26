@@ -16,6 +16,9 @@ from sqlalchemy.orm import selectinload
 from models.text import Text
 
 from models.condition import Condition
+
+from models.player_dialog_choice import PlayerDialogChoice
+
     
 
 class DialogService:
@@ -28,7 +31,7 @@ class DialogService:
         if dialog.id == 1:
             pass
             #dialog.text.text = "123"
-            dialog.options[0].text.text = "222"
+            #dialog.options[0].text.text = "222"
         
         return dialog
         
@@ -401,3 +404,4 @@ class DialogService:
             await session.commit()
 
             return condition.id
+            

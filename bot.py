@@ -121,8 +121,7 @@ async def console():
             print("Тестовая команда")
 
             try:
-                dialog = await game.dialogs.get_by_id(1)
-                print(dialog.options[0].text.text)
+                print(game.dialogs.check_conditions(9, 2))
             except Exception as e:
                 print(f"Ошибка: {type(e).__name__}: {e}")
 
