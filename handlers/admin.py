@@ -570,7 +570,7 @@ async def show_dialog_option(
         )
 
     text = (
-        f"<b>Кнопка:</b> {option.text.text}\n\n"
+        f"<b>Кнопка:</b> {option.text.text} (id: {option.id})\n\n"
         f"{next_dialog_line}"
     )
 

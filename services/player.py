@@ -1,9 +1,10 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from models.player import Player
 
+from models.dialog import Dialog
 from models.dialog_option import DialogOption
 from models.player_dialog_choice import PlayerDialogChoice
 
@@ -114,13 +115,13 @@ class PlayerService:
     async def choose_dialog_option(
         self,
         player: Player,
-        #option_id: int
-        option: DialogOption
+        dialog: Dialog,
+        option: DialogOption,
     ) -> Player | None:
         async with self.db.session_factory() as session:
             db_player = await session.get(
                 Player,
-                player.id
+                player.id,
             )
 
             if db_player is None:
@@ -128,11 +129,6 @@ class PlayerService:
 
             if db_player.current_dialog_id is None:
                 return None
-
-            #option = await session.get(
-            #   DialogOption,
-            #    option_id
-            #)
 
             if option is None:
                 return None
@@ -142,25 +138,87 @@ class PlayerService:
             if option.dialog_id != db_player.current_dialog_id:
                 return None
 
-            # Пока кнопка никуда не ведёт.
-            if option.next_dialog_id is None:
-                return None
+            # Сохраняем выбор только если это разрешено
+            # настройками текущего диалога.
+            if dialog.save_choice and option.save_choice:
 
-            choice = PlayerDialogChoice(
-                player_id=db_player.id,
-                dialog_id=db_player.current_dialog_id,
-                option_id=option.id
-            )
+                # ---------------------------------------------
+                # Обычный режим:
+                # только один выбор в рамках диалога.
+                # ---------------------------------------------
+                if not dialog.multiselect:
+                    await session.execute(
+                        delete(PlayerDialogChoice).where(
+                            PlayerDialogChoice.player_id == db_player.id,
+                            PlayerDialogChoice.dialog_id == db_player.current_dialog_id,
+                        )
+                    )
 
-            session.add(choice)
+                    session.add(
+                        PlayerDialogChoice(
+                            player_id=db_player.id,
+                            dialog_id=db_player.current_dialog_id,
+                            option_id=option.id,
+                        )
+                    )
 
-            db_player.current_dialog_id = option.next_dialog_id
+                # ---------------------------------------------
+                # Multiselect:
+                # несколько разных options в одном диалоге.
+                # ---------------------------------------------
+                else:
+                    result = await session.execute(
+                        select(PlayerDialogChoice.id)
+                        .where(
+                            PlayerDialogChoice.player_id == db_player.id,
+                            PlayerDialogChoice.dialog_id == db_player.current_dialog_id,
+                            PlayerDialogChoice.option_id == option.id,
+                        )
+                        .limit(1)
+                    )
+
+                    choice_exists = (
+                        result.scalar_one_or_none() is not None
+                    )
+
+                    # Не добавляем один и тот же option повторно.
+                    if not choice_exists:
+                        session.add(
+                            PlayerDialogChoice(
+                                player_id=db_player.id,
+                                dialog_id=db_player.current_dialog_id,
+                                option_id=option.id,
+                            )
+                        )
+
+            # ---------------------------------------------
+            # Определяем следующий диалог.
+            #
+            # Приоритет:
+            #
+            # option.next_dialog_id
+            #       ↓
+            # dialog.next_dialog_id
+            #       ↓
+            # остаёмся без изменения
+            # ---------------------------------------------
+
+            next_dialog_id = None
+
+            if option.next_dialog_id is not None:
+                next_dialog_id = option.next_dialog_id
+
+            elif dialog.next_dialog_id is not None:
+                next_dialog_id = dialog.next_dialog_id
+
+            if next_dialog_id is not None:
+                db_player.current_dialog_id = next_dialog_id
 
             await session.commit()
 
-            # Обновляем объект, который был передан
-            # в сервис, чтобы его можно было передать дальше
-            # в main() без дополнительного запроса.
+            # Обновляем переданный объект player,
+            # чтобы его можно было использовать дальше
+            # без дополнительного запроса.
             player.current_dialog_id = db_player.current_dialog_id
 
             return player

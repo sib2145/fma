@@ -17,7 +17,7 @@ class ConditionOperator(Base):
     
     weight: Mapped[int] = mapped_column(
         nullable=False,
-        default=0
+        default=1
     )
 
     comment: Mapped[str | None] = mapped_column(

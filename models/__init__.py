@@ -2,6 +2,7 @@ from models.base import Base
 from models.condition import Condition
 from models.condition_operator import ConditionOperator
 from models.condition_type import ConditionType
+from models.condition_type_operator import ConditionTypeOperator
 from models.dialog import Dialog
 from models.dialog_option import DialogOption
 from models.player import Player

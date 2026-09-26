@@ -1,5 +1,5 @@
 from sqlalchemy import Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import Base
 
@@ -17,10 +17,15 @@ class ConditionType(Base):
 
     weight: Mapped[int] = mapped_column(
         nullable=False,
-        default=0
+        default=1
     )
 
     comment: Mapped[str | None] = mapped_column(
         Text,
         nullable=True
+    )
+    
+    allowed_operators = relationship(
+        "ConditionTypeOperator",
+        back_populates="condition_type",
     )

@@ -28,12 +28,12 @@ class Condition(Base):
 
     operator_type_id: Mapped[int] = mapped_column(
         ForeignKey("condition_operators.id"),
-        nullable=False
+        nullable=True
     )
     
     weight: Mapped[int] = mapped_column(
         nullable=False,
-        default=0
+        default=1
     )
 
     value1: Mapped[str | None] = mapped_column(

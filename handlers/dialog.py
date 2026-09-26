@@ -113,7 +113,7 @@ async def dialog_option_callback(
     # Помечаем выбор, устанавливаем следующий дилаог и т.д., если это требуется в соответствии с кнопкой
     player = await game.players.choose_dialog_option(
         player=player,
-        #option_id=option_id
+        dialog=dialog,
         option=option_selected
     )
 

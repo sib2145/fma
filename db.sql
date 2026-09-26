@@ -6,6 +6,13 @@ CREATE TABLE IF NOT EXISTS "condition_operators" (
 	"comment"	TEXT,
 	PRIMARY KEY("id" AUTOINCREMENT)
 );
+CREATE TABLE IF NOT EXISTS "condition_type_operators" (
+	"condition_type_id"	INTEGER NOT NULL,
+	"operator_type_id"	INTEGER NOT NULL,
+	PRIMARY KEY("condition_type_id","operator_type_id"),
+	CONSTRAINT "ctop_condition_type_id" FOREIGN KEY("condition_type_id") REFERENCES "condition_types"("id"),
+	CONSTRAINT "ctop_operator_type_id" FOREIGN KEY("operator_type_id") REFERENCES "condition_operators"("id")
+);
 CREATE TABLE IF NOT EXISTS "condition_types" (
 	"id"	INTEGER NOT NULL,
 	"text_id"	INTEGER NOT NULL,
@@ -37,6 +44,7 @@ CREATE TABLE IF NOT EXISTS "dialog_options" (
 	"weight"	INTEGER,
 	"text_id"	INTEGER NOT NULL,
 	"next_dialog_id"	INTEGER,
+	"save_choice"	INTEGER NOT NULL DEFAULT 1,
 	PRIMARY KEY("id" AUTOINCREMENT)
 );
 CREATE TABLE IF NOT EXISTS "dialogs" (
@@ -44,6 +52,8 @@ CREATE TABLE IF NOT EXISTS "dialogs" (
 	"text_id"	INTEGER NOT NULL,
 	"image"	TEXT,
 	"next_dialog_id"	INTEGER,
+	"save_choice"	INTEGER NOT NULL DEFAULT 1,
+	"multiselect"	INTEGER NOT NULL DEFAULT 0,
 	PRIMARY KEY("id" AUTOINCREMENT)
 );
 CREATE TABLE IF NOT EXISTS "locales" (
@@ -78,21 +88,36 @@ INSERT INTO "condition_operators" VALUES (1,24,1,'=');
 INSERT INTO "condition_operators" VALUES (2,25,2,'<>');
 INSERT INTO "condition_operators" VALUES (3,26,3,'<=');
 INSERT INTO "condition_operators" VALUES (4,27,4,'>=');
+INSERT INTO "condition_type_operators" VALUES (3,1);
+INSERT INTO "condition_type_operators" VALUES (3,2);
+INSERT INTO "condition_type_operators" VALUES (4,1);
+INSERT INTO "condition_type_operators" VALUES (4,2);
 INSERT INTO "condition_types" VALUES (1,16,1,'group begin');
 INSERT INTO "condition_types" VALUES (2,17,2,'group end');
 INSERT INTO "condition_types" VALUES (3,18,3,'option <x> selected in dialog <y>');
 INSERT INTO "condition_types" VALUES (4,19,4,'dialog <x> completed');
-INSERT INTO "condition_types" VALUES (5,21,6,'or');
-INSERT INTO "condition_types" VALUES (6,22,7,'function result');
-INSERT INTO "condition_types" VALUES (7,23,8,'player flag <x> = <y>');
+INSERT INTO "condition_types" VALUES (5,21,5,'or');
+INSERT INTO "condition_types" VALUES (6,22,6,'function result');
+INSERT INTO "condition_types" VALUES (7,23,7,'player flag <x> = <y>');
 INSERT INTO "conditions" VALUES (1,2,NULL,4,1,1,'1',NULL);
-INSERT INTO "dialog_options" VALUES (49,1,NULL,1,5007,2);
-INSERT INTO "dialog_options" VALUES (50,2,NULL,1,5009,NULL);
-INSERT INTO "dialogs" VALUES (1,5006,NULL,NULL);
-INSERT INTO "dialogs" VALUES (2,5008,NULL,NULL);
+INSERT INTO "dialog_options" VALUES (49,1,NULL,1,5007,2,1);
+INSERT INTO "dialog_options" VALUES (50,2,NULL,1,5009,NULL,1);
+INSERT INTO "dialog_options" VALUES (52,2,NULL,2,5011,NULL,1);
+INSERT INTO "dialog_options" VALUES (53,2,NULL,3,5012,NULL,1);
+INSERT INTO "dialog_options" VALUES (54,2,NULL,4,5013,NULL,1);
+INSERT INTO "dialog_options" VALUES (55,2,NULL,5,5014,3,0);
+INSERT INTO "dialog_options" VALUES (56,4,NULL,1,5017,1,1);
+INSERT INTO "dialog_options" VALUES (57,3,NULL,1,5018,2,1);
+INSERT INTO "dialogs" VALUES (1,5006,NULL,NULL,1,0);
+INSERT INTO "dialogs" VALUES (2,5008,NULL,4,1,1);
+INSERT INTO "dialogs" VALUES (3,5015,NULL,2,0,0);
+INSERT INTO "dialogs" VALUES (4,5016,NULL,NULL,1,0);
 INSERT INTO "locales" VALUES (1,'ru');
-INSERT INTO "player_dialog_choices" VALUES (20,9,1,49);
-INSERT INTO "players" VALUES (9,6136061550,1,'2026-09-25 09:01:27.257004',NULL,2);
+INSERT INTO "player_dialog_choices" VALUES (50,9,2,50);
+INSERT INTO "player_dialog_choices" VALUES (53,9,2,52);
+INSERT INTO "player_dialog_choices" VALUES (54,9,4,56);
+INSERT INTO "player_dialog_choices" VALUES (55,9,1,49);
+INSERT INTO "players" VALUES (9,6136061550,1,'2026-09-25 09:01:27.257004',NULL,4);
 INSERT INTO "texts" VALUES (5000,1,'Привет тебе в игре 🔸️ <b>Fantasy Market</b> 🔸️! 
 Создай свой магазин в мире фэнтези и управляй им!
 
@@ -173,7 +198,31 @@ INSERT INTO "texts" VALUES (26,1,'<= Меньше или равно');
 INSERT INTO "texts" VALUES (27,1,'=> Больше или равно');
 INSERT INTO "texts" VALUES (5008,1,'Привет, мой старый знакомый!
 
-Мы давно не виделись. Несколько лет прошло с нашей последней встречи.');
-INSERT INTO "texts" VALUES (5009,1,'Поприветствовать в ответ');
+Мы давно не виделись. Несколько лет прошло с нашей последней встречи.
+
+Кем ты был эти последние годы?');
+INSERT INTO "texts" VALUES (5009,1,'Странствующим торговцем');
 INSERT INTO "texts" VALUES (5010,1,'Продолжить');
+INSERT INTO "texts" VALUES (5011,1,'Алхимиком в лавке');
+INSERT INTO "texts" VALUES (5012,1,'Ученым');
+INSERT INTO "texts" VALUES (5013,1,'Управляющим гостиницы');
+INSERT INTO "texts" VALUES (5014,1,'Подробнее о выборах');
+INSERT INTO "texts" VALUES (5015,1,'- Странствующим торговцем (цены лучше на 5%)
+- Алхимиком в лавке (шанс создать более редкое зелье +5%)
+- Ученым (скорость исследований рецептов и пр. +5%)
+- Управляющим гостиницы (+5% шанс найти более редкий персонал для найма)');
+INSERT INTO "texts" VALUES (5016,1,'Что ж. Эти годы я тоже не сидел на месте. 
+
+А прямо сейчас объезжаю деревни и города наживать добра и прощупывать почву.
+
+Многие деревни богаты ресурсами, а местные готовы продавать их по хорошей цене. В городах всё дороже, но там выгоднее продавать конечный продукт.
+
+В какое место ты направляешься?');
+INSERT INTO "texts" VALUES (5017,1,'Вернуться');
+INSERT INTO "texts" VALUES (5018,1,'Назад к выбору');
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_player_dialog_choice_unique" ON "player_dialog_choices" (
+	"player_id",
+	"dialog_id",
+	"option_id"
+);
 COMMIT;

@@ -1,6 +1,6 @@
 from typing import Optional
 
-from sqlalchemy import ForeignKey, Integer, Text as SQLText
+from sqlalchemy import ForeignKey, Integer, Text as SQLText, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import Base
@@ -38,6 +38,12 @@ class DialogOption(Base):
     next_dialog_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("dialogs.id"),
         nullable=True
+    )
+    
+    save_choice: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
     )
 
     dialog: Mapped["Dialog"] = relationship(

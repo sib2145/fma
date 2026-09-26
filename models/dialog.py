@@ -1,5 +1,6 @@
 from sqlalchemy import ForeignKey, Text as SQLText
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Boolean
 
 from models.base import Base
 from models.text import Text
@@ -24,10 +25,33 @@ class Dialog(Base):
         SQLText,
         nullable=True
     )
+    
+    next_dialog_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dialogs.id"),
+        nullable=True,
+    )
+
+    save_choice: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+
+    multiselect: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
 
     text: Mapped["Text"] = relationship(
         "Text",
         foreign_keys=[text_id]
+    )
+
+    next_dialog: Mapped["Dialog | None"] = relationship(
+        "Dialog",
+        remote_side=[id],
+        foreign_keys=[next_dialog_id],
     )
 
     options: Mapped[list["DialogOption"]] = relationship(
