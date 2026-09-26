@@ -32,7 +32,7 @@ async def start_menu(message: Message, edit = False):
     
     text = await db.GetLocaleText(5000)
     
-    player = game.players.get_by_telegram_id(message.chat.id)
+    player = await game.players.get_by_telegram_id(message.chat.id)
     
     builder = InlineKeyboardBuilder()
     
@@ -148,13 +148,12 @@ async def create_account_confirm(callback: CallbackQuery):
     telegram_id = callback.from_user.id
     player = await game.players.register(telegram_id)
     
+    dialog_id = 1
+    
+    await game.players.set_current_dialog(player, dialog_id)
+    
     from handlers.dialog import main as dialog_show
     await dialog_show(callback.message, True)
-    
-    if player != None:
-        pass
-        #text = f"Аккаунт для пользователя {telegram_id} создан. Игровой id: {player.id}"
-        #await callback.message.edit_text(text)
         
 # Войти в мир игры (переадресация на нужное меню)
 async def enter_world(message: Message, edit = False):

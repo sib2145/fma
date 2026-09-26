@@ -13,8 +13,8 @@ class Database:
 
         self.engine = create_async_engine(
             f"sqlite+aiosqlite:///{db_path}",
-            #echo=False,
-            echo=True,
+            echo=False,
+            #echo=True,
         )
 
         @event.listens_for(self.engine.sync_engine, "connect")

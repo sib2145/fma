@@ -14,12 +14,25 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from models.text import Text
-
+    
 
 class DialogService:
     def __init__(self, db, text_service):
         self.db = db
         self.text_service = text_service
+        
+    async def on_open_dialog_processor(self, dialog):
+        print("open dialog processor, id: ", dialog.id)
+        if dialog.id == 1:
+            pass
+            #dialog.text.text = "123"
+            dialog.options[0].text.text = "222"
+        
+        return dialog
+        
+    async def on_close_dialog_processor(self, dialog, option_selected):
+        print("close dialog processor, id: ", dialog.id)
+        return dialog, option_selected
 
     async def get_by_id(self, dialog_id: int) -> Dialog | None:
         async with self.db.session_factory() as session:
@@ -39,8 +52,18 @@ class DialogService:
                 dialog.options.sort(
                     key=lambda option: option.weight or 0
                 )
+                
+            dialog = await self.on_open_dialog_processor(dialog)
 
             return dialog
+            
+    #async def get_by_id_processed(self, dialog_id: int):
+    #    dialog = await self.get_by_id(dialog_id)
+    #    if Dialog != None:
+    #        options = {}
+    #        for option in dialog.options:
+    #            option[option.id] = 
+    #        return dialog_id, dialog.text.text
 
 
     async def create(
@@ -330,3 +353,21 @@ class DialogService:
             )
 
             return list(result.scalars())
+            
+    async def get_option_for_dialog(
+        self,
+        option_id: int,
+        dialog_id: int
+    ) -> DialogOption | None:
+
+        async with self.db.session_factory() as session:
+            result = await session.execute(
+                select(DialogOption)
+                .where(
+                    DialogOption.id == option_id,
+                    DialogOption.dialog_id == dialog_id
+                )
+            )
+
+            return result.scalar_one_or_none()
+

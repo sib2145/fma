@@ -122,7 +122,7 @@ async def console():
 
             try:
                 dialog = await game.dialogs.get_by_id(1)
-                print(dialog.id)
+                print(dialog.options[0].text.text)
             except Exception as e:
                 print(f"Ошибка: {type(e).__name__}: {e}")
 

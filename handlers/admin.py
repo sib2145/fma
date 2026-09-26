@@ -22,6 +22,8 @@ from textwrap import dedent
 
 from html import escape
 
+from handlers.welcome import enter_world
+
 
 config = configparser.ConfigParser()
 config.read("config.ini")
@@ -182,8 +184,18 @@ async def add_dialog_text(
 
     await state.clear()
 
-    await message.answer(
-        f"Диалог создан. ID: {dialog_id}"
+    #await message.answer(
+    #    f"Диалог создан. ID: {dialog_id}"
+    #)
+    
+    await message.delete()
+    
+    dialog = await game.dialogs.get_by_id(dialog_id)
+
+    await show_dialog(
+        message,
+        dialog,
+        edit=False
     )
     
 @admin_router.callback_query(F.data == "admin:dialogs:view")
@@ -270,24 +282,31 @@ async def show_dialog(
     dialog,
     edit: bool = False
 ):
-    text = dialog.text.text
 
     buttons_count = len(dialog.options)
 
-    text += (
-        f"\n\n"
-        f"<b>Количество кнопок:</b> {buttons_count}"
+    text = dedent(f"""
+<b>ID:</b> {dialog.id}
+<b>Количество кнопок:</b> {buttons_count}
+<b>Текст:</b>
+{dialog.text.text}
+        """
     )
 
     builder = InlineKeyboardBuilder()
 
-    builder.add(
-        InlineKeyboardButton(
-            text="Скопировать текст",
-            copy_text=CopyTextButton(
-                text=dialog.text.text
-            )
-        )
+    #builder.add(
+    #    InlineKeyboardButton(
+    #        text="Скопировать текст",
+    #        copy_text=CopyTextButton(
+    #            text=dialog.text.text
+    #        )
+    #    )
+    #)
+
+    builder.button(
+        text="Установить себе и перейти",
+        callback_data=f"admin:dialogs:set_self:{dialog.id}"
     )
 
     builder.button(
@@ -312,7 +331,7 @@ async def show_dialog(
         )
 
     builder.button(
-        text="Назад",
+        text="Назад в редактор",
         callback_data="admin:dialogs:main"
     )
 
@@ -368,6 +387,23 @@ async def add_dialog_option_callback(
         reply_markup=builder.as_markup(),
         parse_mode="HTML"
     )
+    
+@admin_router.callback_query(
+    F.data.regexp(r"^admin:dialogs:set_self:\d+$")
+)
+async def set_self_dialog_callback(
+    callback: CallbackQuery,
+):
+    await callback.answer()
+
+    dialog_id = int(callback.data.split(":")[-1])
+    
+    player = await game.players.get_by_telegram_id(callback.message.chat.id)
+
+    await game.players.set_current_dialog(player, dialog_id)
+    
+    await enter_world(callback.message, True)
+
     
 @admin_router.callback_query(
     F.data.regexp(r"^admin:dialogs:edit:\d+$")
@@ -526,7 +562,7 @@ async def show_dialog_option(
         )
 
         next_dialog_line = (
-            f"<b>Следующий диалог</b> (ID: {option.next_dialog_id}): {next_dialog_text}"
+            f"<b>Следующий диалог</b> (ID: {option.next_dialog_id}):\n {next_dialog_text}"
         )
     else:
         next_dialog_line = (
@@ -534,13 +570,13 @@ async def show_dialog_option(
         )
 
     text = (
-        f"<b>Кнопка:</b> {option.text.text}\n"
+        f"<b>Кнопка:</b> {option.text.text}\n\n"
         f"{next_dialog_line}"
     )
 
 
-    if option.next_dialog_id is not None:
-        text += str(option.next_dialog_id)
+    #if option.next_dialog_id is not None:
+    #    text += str(option.next_dialog_id)
 
     builder = InlineKeyboardBuilder()
     

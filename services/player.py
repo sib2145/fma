@@ -4,6 +4,10 @@ from sqlalchemy import select
 
 from models.player import Player
 
+from models.dialog_option import DialogOption
+from models.player_dialog_choice import PlayerDialogChoice
+
+
 
 class PlayerService:
 
@@ -88,19 +92,75 @@ class PlayerService:
             
     async def set_current_dialog(
         self,
-        player_id: int,
-        dialog_id: int | None
+        player: Player,
+        dialog_id: int
     ) -> bool:
-
         async with self.db.session_factory() as session:
+            db_player = await session.get(
+                Player,
+                player.id
+            )
 
-            player = await session.get(Player, player_id)
-
-            if player is None:
+            if db_player is None:
                 return False
 
-            player.current_dialog_id = dialog_id
+            db_player.current_dialog_id = dialog_id
 
             await session.commit()
 
             return True
+
+
+    async def choose_dialog_option(
+        self,
+        player: Player,
+        #option_id: int
+        option: DialogOption
+    ) -> Player | None:
+        async with self.db.session_factory() as session:
+            db_player = await session.get(
+                Player,
+                player.id
+            )
+
+            if db_player is None:
+                return None
+
+            if db_player.current_dialog_id is None:
+                return None
+
+            #option = await session.get(
+            #   DialogOption,
+            #    option_id
+            #)
+
+            if option is None:
+                return None
+
+            # Защита от подделанного callback.
+            # Кнопка должна принадлежать текущему диалогу игрока.
+            if option.dialog_id != db_player.current_dialog_id:
+                return None
+
+            # Пока кнопка никуда не ведёт.
+            if option.next_dialog_id is None:
+                return None
+
+            choice = PlayerDialogChoice(
+                player_id=db_player.id,
+                dialog_id=db_player.current_dialog_id,
+                option_id=option.id
+            )
+
+            session.add(choice)
+
+            db_player.current_dialog_id = option.next_dialog_id
+
+            await session.commit()
+
+            # Обновляем объект, который был передан
+            # в сервис, чтобы его можно было передать дальше
+            # в main() без дополнительного запроса.
+            player.current_dialog_id = db_player.current_dialog_id
+
+            return player
