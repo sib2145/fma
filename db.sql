@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS "conditions" (
 	CONSTRAINT "cond_cond_type_id" FOREIGN KEY("condition_type_id") REFERENCES "condition_types"("id"),
 	CONSTRAINT "cond_dialog_id" FOREIGN KEY("dialog_id") REFERENCES "dialogs"("id"),
 	CONSTRAINT "cond_oper_type_id" FOREIGN KEY("operator_type_id") REFERENCES "condition_operators"("id"),
-	CONSTRAINT "cond_option_id" FOREIGN KEY("option_id") REFERENCES ""
+	CONSTRAINT "cond_option_id" FOREIGN KEY("option_id") REFERENCES "dialog_options"("id")
 );
 CREATE TABLE IF NOT EXISTS "dialog_options" (
 	"id"	INTEGER,

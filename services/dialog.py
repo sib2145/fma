@@ -14,6 +14,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from models.text import Text
+
+from models.condition import Condition
     
 
 class DialogService:
@@ -371,3 +373,31 @@ class DialogService:
 
             return result.scalar_one_or_none()
 
+    async def add_condition(
+        self,
+        condition_type_id: int,
+        operator_type_id: int,
+        value1: str | None = None,
+        value2: str | None = None,
+        dialog_id: int | None = None,
+        option_id: int | None = None
+    ) -> int | None:
+        if (dialog_id is None) == (option_id is None):
+            return None
+
+        async with self.db.session_factory() as session:
+            condition = Condition(
+                dialog_id=dialog_id,
+                option_id=option_id,
+                condition_type_id=condition_type_id,
+                operator_type_id=operator_type_id,
+                value1=value1,
+                value2=value2
+            )
+
+            session.add(condition)
+
+            await session.flush()
+            await session.commit()
+
+            return condition.id
