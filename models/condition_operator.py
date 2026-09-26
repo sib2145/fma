@@ -14,6 +14,11 @@ class ConditionOperator(Base):
     text_id: Mapped[int] = mapped_column(
         nullable=False
     )
+    
+    weight: Mapped[int] = mapped_column(
+        nullable=False,
+        default=0
+    )
 
     comment: Mapped[str | None] = mapped_column(
         Text,

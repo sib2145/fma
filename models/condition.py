@@ -30,6 +30,11 @@ class Condition(Base):
         ForeignKey("condition_operators.id"),
         nullable=False
     )
+    
+    weight: Mapped[int] = mapped_column(
+        nullable=False,
+        default=0
+    )
 
     value1: Mapped[str | None] = mapped_column(
         Text,

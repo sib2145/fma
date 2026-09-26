@@ -2,6 +2,7 @@ BEGIN TRANSACTION;
 CREATE TABLE IF NOT EXISTS "condition_operators" (
 	"id"	INTEGER NOT NULL,
 	"text_id"	INTEGER NOT NULL,
+	"weight"	INTEGER NOT NULL DEFAULT 1,
 	"comment"	TEXT,
 	PRIMARY KEY("id" AUTOINCREMENT)
 );
@@ -73,10 +74,10 @@ CREATE TABLE IF NOT EXISTS "texts" (
 	"text"	TEXT,
 	PRIMARY KEY("id","locale_id")
 );
-INSERT INTO "condition_operators" VALUES (1,24,'=');
-INSERT INTO "condition_operators" VALUES (2,25,'<>');
-INSERT INTO "condition_operators" VALUES (3,26,'<=');
-INSERT INTO "condition_operators" VALUES (4,27,'>=');
+INSERT INTO "condition_operators" VALUES (1,24,1,'=');
+INSERT INTO "condition_operators" VALUES (2,25,2,'<>');
+INSERT INTO "condition_operators" VALUES (3,26,3,'<=');
+INSERT INTO "condition_operators" VALUES (4,27,4,'>=');
 INSERT INTO "condition_types" VALUES (1,16,1,'group begin');
 INSERT INTO "condition_types" VALUES (2,17,2,'group end');
 INSERT INTO "condition_types" VALUES (3,18,3,'option <x> selected in dialog <y>');
@@ -163,7 +164,6 @@ INSERT INTO "texts" VALUES (16,1,'Начало группы условий');
 INSERT INTO "texts" VALUES (17,1,'Конец группы условий');
 INSERT INTO "texts" VALUES (18,1,'Кнопка Х нажата в диалоге У');
 INSERT INTO "texts" VALUES (19,1,'Диалог Х завершен');
-INSERT INTO "texts" VALUES (20,1,'Логическое И');
 INSERT INTO "texts" VALUES (21,1,'Логическое ИЛИ');
 INSERT INTO "texts" VALUES (22,1,'Результат функции');
 INSERT INTO "texts" VALUES (23,1,'Значение флага у игрока');
