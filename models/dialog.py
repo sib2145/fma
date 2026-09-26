@@ -42,6 +42,12 @@ class Dialog(Base):
         default=False,
         nullable=False,
     )
+    
+    is_extra: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
 
     text: Mapped["Text"] = relationship(
         "Text",

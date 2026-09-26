@@ -25,15 +25,22 @@ async def main(
 
     if player is None:
         return
-
-    if player.current_dialog_id is None:
+    
+    current_dialog_id = None
+    
+    if player.show_dialog_mode == 2 and player.current_extra_dialog_id is not None:
+        current_dialog_id = player.current_extra_dialog_id
+    elif player.show_dialog_mode == 1 and player.current_dialog_id is not None:
+        current_dialog_id = player.current_dialog_id
+    else:
         await message.answer(
             "Error: no active dialog for player"
         )
         return
-
+    print("dialog.py current_dialog_id: ", current_dialog_id)
+    
     dialog = await game.dialogs.get_by_id(
-        player.current_dialog_id
+        current_dialog_id
     )
     
     current_players_dialog[message.chat.id] = dialog
@@ -111,13 +118,13 @@ async def dialog_option_callback(
     dialog, option_selected = await game.dialogs.on_close_dialog_processor(dialog, option_selected)
 
     # Помечаем выбор, устанавливаем следующий дилаог и т.д., если это требуется в соответствии с кнопкой
-    player = await game.players.choose_dialog_option(
+    next_dialog_id = await game.players.choose_dialog_option(
         player=player,
         dialog=dialog,
         option=option_selected
     )
 
-    if player is None:
+    if next_dialog_id is None:
         return
 
     # Обновляем сообщение, так как уже должен быть установлен следующий диалог

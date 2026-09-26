@@ -9,14 +9,15 @@ from services.dialog import DialogService
 class Game:
     def __init__(self):
         self.is_running = False
-        print("Game init")
-
-    async def run(self):
-        print("Game engine running...")
         
         self.players = PlayerService(db)
         self.texts = TextService(db)
         self.dialogs = DialogService(db, self.texts)
+        
+        print("Game init")
+
+    async def run(self):
+        print("Game engine running...")
         
         self.is_running = True
         

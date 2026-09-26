@@ -1,9 +1,11 @@
 from datetime import datetime, UTC
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, Integer
+
+from typing import Optional
 
 from sqlalchemy import BigInteger, DateTime
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import Base
 
@@ -42,4 +44,26 @@ class Player(Base):
     current_dialog_id: Mapped[int | None] = mapped_column(
         ForeignKey("dialogs.id"),
         nullable=True
+    )
+    
+    current_extra_dialog_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dialogs.id"),
+        nullable=True
+    )
+    
+    show_dialog_mode: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False,
+    )
+
+    
+    current_dialog: Mapped[Optional["Dialog"]] = relationship(
+        "Dialog",
+        foreign_keys=[current_dialog_id]
+    )
+    
+    current_extra_dialog: Mapped[Optional["Dialog"]] = relationship(
+        "Dialog",
+        foreign_keys=[current_extra_dialog_id]
     )

@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS "dialogs" (
 	"next_dialog_id"	INTEGER,
 	"save_choice"	INTEGER NOT NULL DEFAULT 1,
 	"multiselect"	INTEGER NOT NULL DEFAULT 0,
+	"is_extra"	INTEGER NOT NULL DEFAULT 0,
 	PRIMARY KEY("id" AUTOINCREMENT)
 );
 CREATE TABLE IF NOT EXISTS "locales" (
@@ -68,6 +69,20 @@ CREATE TABLE IF NOT EXISTS "player_dialog_choices" (
 	"option_id"	INTEGER NOT NULL,
 	PRIMARY KEY("id" AUTOINCREMENT)
 );
+CREATE TABLE IF NOT EXISTS "player_flag_types" (
+	"id"	INTEGER NOT NULL,
+	"text_id"	INTEGER NOT NULL UNIQUE,
+	"permanent"	INTEGER NOT NULL DEFAULT 0,
+	PRIMARY KEY("id" AUTOINCREMENT)
+);
+CREATE TABLE IF NOT EXISTS "player_flags" (
+	"player_id"	INTEGER NOT NULL,
+	"flag_type_id"	INTEGER NOT NULL,
+	"value"	TEXT NOT NULL DEFAULT 1,
+	CONSTRAINT "pk_player_flags" UNIQUE("player_id","flag_type_id"),
+	CONSTRAINT "player_flags_fk_flag_type_id" FOREIGN KEY("flag_type_id") REFERENCES "player_flag_types"("id"),
+	CONSTRAINT "player_flags_fk_player_id" FOREIGN KEY("player_id") REFERENCES "players"("id")
+);
 CREATE TABLE IF NOT EXISTS "players" (
 	"id"	INTEGER NOT NULL,
 	"telegram_id"	INTEGER NOT NULL UNIQUE,
@@ -75,8 +90,11 @@ CREATE TABLE IF NOT EXISTS "players" (
 	"join_date"	DATETIME,
 	"last_active"	DATETIME,
 	"current_dialog_id"	INTEGER,
+	"current_extra_dialog_id"	INTEGER,
+	"show_dialog_mode"	INTEGER NOT NULL DEFAULT 2,
 	PRIMARY KEY("id" AUTOINCREMENT),
-	CONSTRAINT "fk_current_dialog_id" FOREIGN KEY("current_dialog_id") REFERENCES "dialogs"("id")
+	CONSTRAINT "fk_current_dialog_id" FOREIGN KEY("current_dialog_id") REFERENCES "dialogs"("id"),
+	CONSTRAINT "fk_current_extra_dialog_id" FOREIGN KEY("current_extra_dialog_id") REFERENCES "dialogs"("id")
 );
 CREATE TABLE IF NOT EXISTS "texts" (
 	"id"	INTEGER NOT NULL,
@@ -108,16 +126,35 @@ INSERT INTO "dialog_options" VALUES (54,2,NULL,4,5013,NULL,1);
 INSERT INTO "dialog_options" VALUES (55,2,NULL,5,5014,3,0);
 INSERT INTO "dialog_options" VALUES (56,4,NULL,1,5017,1,1);
 INSERT INTO "dialog_options" VALUES (57,3,NULL,1,5018,2,1);
-INSERT INTO "dialogs" VALUES (1,5006,NULL,NULL,1,0);
-INSERT INTO "dialogs" VALUES (2,5008,NULL,4,1,1);
-INSERT INTO "dialogs" VALUES (3,5015,NULL,2,0,0);
-INSERT INTO "dialogs" VALUES (4,5016,NULL,NULL,1,0);
+INSERT INTO "dialog_options" VALUES (58,5,NULL,1,5021,7,1);
+INSERT INTO "dialog_options" VALUES (59,5,NULL,2,5022,NULL,1);
+INSERT INTO "dialog_options" VALUES (60,5,NULL,3,5023,NULL,1);
+INSERT INTO "dialog_options" VALUES (61,5,NULL,4,5024,NULL,1);
+INSERT INTO "dialog_options" VALUES (62,6,NULL,1,5026,NULL,1);
+INSERT INTO "dialog_options" VALUES (63,6,NULL,2,5027,NULL,1);
+INSERT INTO "dialog_options" VALUES (64,6,NULL,3,5028,NULL,1);
+INSERT INTO "dialog_options" VALUES (65,6,NULL,4,5029,NULL,1);
+INSERT INTO "dialog_options" VALUES (66,6,NULL,5,5030,7,1);
+INSERT INTO "dialog_options" VALUES (67,7,NULL,1,5032,NULL,1);
+INSERT INTO "dialog_options" VALUES (68,7,NULL,2,5033,NULL,1);
+INSERT INTO "dialog_options" VALUES (69,7,NULL,3,5034,NULL,1);
+INSERT INTO "dialog_options" VALUES (70,7,NULL,4,5035,NULL,1);
+INSERT INTO "dialog_options" VALUES (71,7,NULL,5,5036,NULL,1);
+INSERT INTO "dialogs" VALUES (1,5006,NULL,NULL,1,0,0);
+INSERT INTO "dialogs" VALUES (2,5008,NULL,4,1,1,0);
+INSERT INTO "dialogs" VALUES (3,5015,NULL,2,0,0,0);
+INSERT INTO "dialogs" VALUES (4,5016,NULL,NULL,1,0,0);
+INSERT INTO "dialogs" VALUES (5,5019,NULL,NULL,0,0,1);
+INSERT INTO "dialogs" VALUES (6,5025,NULL,NULL,0,0,0);
+INSERT INTO "dialogs" VALUES (7,5031,NULL,NULL,0,0,0);
 INSERT INTO "locales" VALUES (1,'ru');
 INSERT INTO "player_dialog_choices" VALUES (50,9,2,50);
 INSERT INTO "player_dialog_choices" VALUES (53,9,2,52);
 INSERT INTO "player_dialog_choices" VALUES (54,9,4,56);
 INSERT INTO "player_dialog_choices" VALUES (55,9,1,49);
-INSERT INTO "players" VALUES (9,6136061550,1,'2026-09-25 09:01:27.257004',NULL,4);
+INSERT INTO "player_flag_types" VALUES (1,5020,1);
+INSERT INTO "player_flags" VALUES (9,1,'1');
+INSERT INTO "players" VALUES (9,6136061550,1,'2026-09-25 09:01:27.257004',NULL,4,7,2);
 INSERT INTO "texts" VALUES (5000,1,'Привет тебе в игре 🔸️ <b>Fantasy Market</b> 🔸️! 
 Создай свой магазин в мире фэнтези и управляй им!
 
@@ -220,6 +257,26 @@ INSERT INTO "texts" VALUES (5016,1,'Что ж. Эти годы я тоже не 
 В какое место ты направляешься?');
 INSERT INTO "texts" VALUES (5017,1,'Вернуться');
 INSERT INTO "texts" VALUES (5018,1,'Назад к выбору');
+INSERT INTO "texts" VALUES (5019,1,'✨ Добро пожаловать в панель администратора! ✨
+
+Выберите действие:');
+INSERT INTO "texts" VALUES (5020,1,'Является администратором');
+INSERT INTO "texts" VALUES (5021,1,'Редактор диалогов');
+INSERT INTO "texts" VALUES (5022,1,'Редактор текстов');
+INSERT INTO "texts" VALUES (5023,1,'В игру');
+INSERT INTO "texts" VALUES (5024,1,'Главное меню');
+INSERT INTO "texts" VALUES (5025,1,'Просмотр диалога');
+INSERT INTO "texts" VALUES (5026,1,'Установить себе и перейти');
+INSERT INTO "texts" VALUES (5027,1,'Редактировать текст');
+INSERT INTO "texts" VALUES (5028,1,'Добавить изображение');
+INSERT INTO "texts" VALUES (5029,1,'Добавить кнопку');
+INSERT INTO "texts" VALUES (5030,1,'В редактор диалогов');
+INSERT INTO "texts" VALUES (5031,1,'Страница редактора диалогов');
+INSERT INTO "texts" VALUES (5032,1,'Добавить');
+INSERT INTO "texts" VALUES (5033,1,'Просмотр');
+INSERT INTO "texts" VALUES (5034,1,'Список диалогов');
+INSERT INTO "texts" VALUES (5035,1,'Поиск');
+INSERT INTO "texts" VALUES (5036,1,'В админ панель');
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_player_dialog_choice_unique" ON "player_dialog_choices" (
 	"player_id",
 	"dialog_id",

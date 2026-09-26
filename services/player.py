@@ -94,7 +94,30 @@ class PlayerService:
     async def set_current_dialog(
         self,
         player: Player,
-        dialog_id: int
+        dialog_id: int | None,
+        as_extra: bool = False 
+    ) -> bool:
+        async with self.db.session_factory() as session:
+            db_player = await session.get(
+                Player,
+                player.id
+            )
+            
+            if db_player is None:
+                return False
+            if as_extra:
+                db_player.current_extra_dialog_id = dialog_id
+            else:
+                db_player.current_dialog_id = dialog_id
+
+            await session.commit()
+
+            return True
+            
+    async def set_show_dialog_mode(
+        self,
+        player: Player,
+        mode: int,
     ) -> bool:
         async with self.db.session_factory() as session:
             db_player = await session.get(
@@ -104,8 +127,8 @@ class PlayerService:
 
             if db_player is None:
                 return False
-
-            db_player.current_dialog_id = dialog_id
+                
+            db_player.show_dialog_mode = mode
 
             await session.commit()
 
@@ -117,7 +140,7 @@ class PlayerService:
         player: Player,
         dialog: Dialog,
         option: DialogOption,
-    ) -> Player | None:
+    ) -> int | None:
         async with self.db.session_factory() as session:
             db_player = await session.get(
                 Player,
@@ -125,22 +148,26 @@ class PlayerService:
             )
 
             if db_player is None:
+                print("Пользователь не найден")
                 return None
 
-            if db_player.current_dialog_id is None:
+            if (db_player.current_dialog_id is None) or (db_player.current_extra_dialog_id is None):
+                print("У пользователя нет активных диалогов")
                 return None
 
             if option is None:
+                print("Нажатая кнопка не передана")
                 return None
 
             # Защита от подделанного callback.
             # Кнопка должна принадлежать текущему диалогу игрока.
-            if option.dialog_id != db_player.current_dialog_id:
+            if (option.dialog_id != db_player.current_dialog_id) and (option.dialog_id != db_player.current_extra_dialog_id):
+                print("Кнопка должна принадлежать текущему диалогу игрока")
                 return None
 
             # Сохраняем выбор только если это разрешено
             # настройками текущего диалога.
-            if dialog.save_choice and option.save_choice:
+            if dialog.save_choice and option.save_choice and player.show_dialog_mode == 1:
 
                 # ---------------------------------------------
                 # Обычный режим:
@@ -190,6 +217,7 @@ class PlayerService:
                                 option_id=option.id,
                             )
                         )
+            await session.commit()
 
             # ---------------------------------------------
             # Определяем следующий диалог.
@@ -210,15 +238,20 @@ class PlayerService:
 
             elif dialog.next_dialog_id is not None:
                 next_dialog_id = dialog.next_dialog_id
+                
 
             if next_dialog_id is not None:
-                db_player.current_dialog_id = next_dialog_id
+                #print("next_dialog_id: ", next_dialog_id)
+                if player.show_dialog_mode == 1:
+                    await self.set_current_dialog(player, next_dialog_id, False)
+                    player.current_dialog_id = next_dialog_id
+                elif player.show_dialog_mode == 2:
+                    await self.set_current_dialog(player, next_dialog_id, True)
+                    player.current_extra_dialog_id = next_dialog_id
+                else:
+                    print(f"Неизвестный show_dialog_mode: {player.show_dialog_mode}")
+                #db_player.current_dialog_id = next_dialog_id
 
-            await session.commit()
+            #await session.commit()
 
-            # Обновляем переданный объект player,
-            # чтобы его можно было использовать дальше
-            # без дополнительного запроса.
-            player.current_dialog_id = db_player.current_dialog_id
-
-            return player
+            return next_dialog_id
