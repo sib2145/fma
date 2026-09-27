@@ -171,6 +171,6 @@ async def enter_world_callback(callback: CallbackQuery):
     await callback.answer()
     await enter_world(callback.message, True)
     
-@welcome_router.message(F.text == "/resume")
+@welcome_router.message(F.text == "/rrr")
 async def enter_world_command(message: Message):
     await enter_world(message)

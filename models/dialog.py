@@ -1,6 +1,6 @@
 from sqlalchemy import ForeignKey, Text as SQLText
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import Boolean
+from sqlalchemy import Boolean, Integer
 
 from models.base import Base
 from models.text import Text
@@ -46,6 +46,12 @@ class Dialog(Base):
     is_extra: Mapped[bool] = mapped_column(
         Boolean,
         default=False,
+        nullable=False,
+    )
+    
+    input_type: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
         nullable=False,
     )
 

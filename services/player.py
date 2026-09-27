@@ -255,3 +255,73 @@ class PlayerService:
             #await session.commit()
 
             return next_dialog_id
+
+
+    async def choice_next_dialog(
+        self,
+        player: Player,
+        dialog: Dialog,
+    ) -> Player | None:
+        """
+        Переводит игрока на следующий диалог.
+
+        Переданный dialog используется непосредственно и повторно
+        из базы не загружается. Это важно, потому что dialog может
+        быть изменён процессором перед вызовом этой функции.
+
+        Перед переходом проверяем, что next_dialog_id действительно
+        существует в базе.
+
+        show_dialog_mode:
+            1 -> current_dialog_id
+            2 -> current_extra_dialog_id
+        """
+
+        if dialog.next_dialog_id is None:
+            return player
+
+        async with self.db.session_factory() as session:
+
+            # Проверяем, существует ли следующий диалог.
+            result = await session.execute(
+                select(Dialog.id)
+                .where(
+                    Dialog.id == dialog.next_dialog_id
+                )
+                .limit(1)
+            )
+
+            next_dialog_id = result.scalar_one_or_none()
+
+            if next_dialog_id is None:
+                return None
+
+            # Загружаем актуального игрока из текущей сессии,
+            # чтобы изменение гарантированно попало в БД.
+            db_player = await session.get(
+                Player,
+                player.id,
+            )
+
+            if db_player is None:
+                return None
+
+            if db_player.show_dialog_mode == 1:
+                db_player.current_dialog_id = next_dialog_id
+
+            elif db_player.show_dialog_mode == 2:
+                db_player.current_extra_dialog_id = next_dialog_id
+
+            else:
+                return None
+
+            await session.commit()
+
+            # Синхронизируем переданный объект player.
+            if db_player.show_dialog_mode == 1:
+                player.current_dialog_id = next_dialog_id
+
+            elif db_player.show_dialog_mode == 2:
+                player.current_extra_dialog_id = next_dialog_id
+
+            return player

@@ -54,6 +54,19 @@ async def enter_game_callback(callback: CallbackQuery):
 async def enter_game_command(message: Message):
     await enter_game(message)
 
+# Продолжить (обновить) игру
+async def resume_game(message: Message, edit = False):
+    await dialog_show(message, edit)
+        
+
+@router.callback_query(F.data=="welcome:enter_world")
+async def resume_game_callback(callback: CallbackQuery):
+    await callback.answer()
+    await resume_game(callback.message, True)
+    
+@router.message(F.text == "/resume")
+async def resume_game_command(message: Message):
+    await resume_game(message)
 
 
 

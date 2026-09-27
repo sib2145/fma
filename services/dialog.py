@@ -16,6 +16,7 @@ from sqlalchemy.orm import selectinload
 from models.text import Text
 
 
+
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -39,19 +40,79 @@ class DialogService:
     def __init__(self, db, text_service):
         self.db = db
         self.text_service = text_service
+    
+    # Срабатывает, когда пользователю показан диалог. Служит для предварительной обработки и замены значений
+    async def on_open_dialog_processor(self, triggered_dialog, params):
+        print("open dialog processor, id: ", triggered_dialog.id)
+        print("open dialog processor params: ", params)
         
-    async def on_open_dialog_processor(self, dialog):
-        print("open dialog processor, id: ", dialog.id)
-        if dialog.id == 1:
-            pass
-            #dialog.text.text = "123"
-            #dialog.options[0].text.text = "222"
+        # Редактор диалогов - просмотр диалога
+        if triggered_dialog.id == 6:
+            viewing_dialog = params.pop("dialog", None)
+            if viewing_dialog is not None:
+                triggered_dialog.text.text = f"Просмотр диалога с id {viewing_dialog.id}"
+            
         
-        return dialog
+        # Редактор диалогов - главная страница
+        elif triggered_dialog.id == 7:
+            async with self.db.session_factory() as session:
+                result = await session.execute(
+                    select(func.count(Dialog.id))
+                    .where(Dialog.is_extra == 0)
+                )
+
+                dialogs_count = result.scalar_one()
+
+            triggered_dialog.text.text = (
+                f"Редактор диалогов\n\n"
+                f"Всего диалогов: {dialogs_count}"
+            )
         
-    async def on_close_dialog_processor(self, dialog, option_selected):
-        print("close dialog processor, id: ", dialog.id)
-        return dialog, option_selected
+        return triggered_dialog, params   # Возвращаем обратно при необходимости модифицированный объект (для дальнейшей отрисовки и т.д.)
+    
+    # Срабатывает, когда пользователь выбрал какую то опцию в диалоге
+    async def on_close_dialog_processor(self, triggered_dialog, option_selected, params):
+        
+        print("close dialog processor, id: ", triggered_dialog.id)
+        
+        return triggered_dialog, option_selected, params  # Возвращаем обратно при необходимости модифицированные объекты
+        
+    # Срабатывает, когда пользователь ввёл что то после диалога, который спрашивает у пользователя ввод
+    async def on_input_dialog_processor(self, triggered_dialog, params, user_input):
+        print("input dialog processor, id: ", triggered_dialog.id)
+        valid = True
+        
+        # Перехваты пользовательского ввода в диалогах по id диалога, и соответственно либо действия, либо просто валидация типов и ввода
+        
+        # Ввод текста для добавления нового диалога в админке
+        if triggered_dialog.id == 8:
+            if user_input != "" and user_input is not None:
+                dialog_id = await self.create(
+                    text=user_input
+                )
+                
+                dialog = await self.get_by_id(dialog_id)
+                
+                params['dialog'] = dialog
+            else:
+                valid = False
+        
+        # Ввод id диалога для просмотра
+        elif triggered_dialog.id == 9:
+            try:
+                dialog_id = int(user_input)
+            except ValueError:
+                valid = False
+                
+            if valid:
+                dialog = await self.get_by_id(dialog_id)
+                if dialog is None:
+                    
+                    valid = False
+                else:
+                    params['dialog'] = dialog
+        
+        return valid, triggered_dialog, params, user_input
 
     async def get_by_id(self, dialog_id: int) -> Dialog | None:
         async with self.db.session_factory() as session:
@@ -71,8 +132,6 @@ class DialogService:
                 dialog.options.sort(
                     key=lambda option: option.weight or 0
                 )
-                
-            dialog = await self.on_open_dialog_processor(dialog)
 
             return dialog
             
