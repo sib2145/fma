@@ -4,7 +4,6 @@ from sqlalchemy.orm import selectinload
 from models.dialog import Dialog
 from models.dialog_option import DialogOption
 
-
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
@@ -14,8 +13,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from models.text import Text
-
-
 
 from dataclasses import dataclass, field
 from enum import Enum
@@ -33,13 +30,6 @@ from services.condition import (
     LogicalOperator,
 )
 
-
-class TemplateParams(dict):
-    def __missing__(self, key):
-        return "{" + key + "}"
-        
-
-
 class DialogService:
     def __init__(self, db, text_service):
         self.db = db
@@ -54,14 +44,19 @@ class DialogService:
         if triggered_dialog.id == 6:
             dialog = params.pop("dialog", None)
             if dialog is not None:
-                #triggered_dialog.text.text = f"Просмотр диалога с id {viewing_dialog.id}"
-                text_params = TemplateParams(
-                    id = dialog.id,
-                    comment = dialog.comment,
-                    text = dialog.text.text,
-                    next_dialog_id = dialog.next_dialog_id or "-",
-                )
-                triggered_dialog.text.text = triggered_dialog.text.text.format_map(text_params)
+                template_params = {
+                    "id": dialog.id,
+                    "comment": dialog.comment,
+                    "text": dialog.text.text,
+                    "next_dialog_id": dialog.next_dialog_id,
+                    "next_dialog_text": (
+                        dialog.next_dialog.text.text
+                        if dialog.next_dialog is not None
+                        else None
+                    ),
+                    "buttons_count": len(dialog.options),
+                }
+                triggered_dialog.text.text = await self.text_service.render_template(triggered_dialog.text.text, template_params)
             
         
         # Редактор диалогов - главная страница
@@ -74,10 +69,15 @@ class DialogService:
 
                 dialogs_count = result.scalar_one()
 
-            triggered_dialog.text.text = (
-                f"Редактор диалогов\n\n"
-                f"Всего диалогов: {dialogs_count}"
+            template_params = {
+                "dialogs_count": dialogs_count,
+            }
+
+            triggered_dialog.text.text = await self.text_service.render_template(
+                triggered_dialog.text.text,
+                template_params,
             )
+
         
         return triggered_dialog, params   # Возвращаем обратно при необходимости модифицированный объект (для дальнейшей отрисовки и т.д.)
     
@@ -92,6 +92,7 @@ class DialogService:
     async def on_input_dialog_processor(self, triggered_dialog, params, user_input):
         print("input dialog processor, id: ", triggered_dialog.id)
         valid = True
+        error_message = None
         
         # Перехваты пользовательского ввода в диалогах по id диалога, и соответственно либо действия, либо просто валидация типов и ввода
         
@@ -123,7 +124,7 @@ class DialogService:
                 else:
                     params['dialog'] = dialog
         
-        return valid, triggered_dialog, params, user_input
+        return valid, triggered_dialog, params, user_input, error_message
 
     async def get_by_id(self, dialog_id: int) -> Dialog | None:
         async with self.db.session_factory() as session:
@@ -131,6 +132,8 @@ class DialogService:
                 select(Dialog)
                 .options(
                     selectinload(Dialog.text),
+                    selectinload(Dialog.next_dialog)
+                        .selectinload(Dialog.text),
                     selectinload(Dialog.options)
                         .selectinload(DialogOption.text)
                 )

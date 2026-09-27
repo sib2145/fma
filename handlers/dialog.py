@@ -169,7 +169,7 @@ async def echo_handler(message: Message):
         params = current_users_params.get(message.chat.id, {})
         user_input = message.text
         
-        valid, dialog, params, user_input = await game.dialogs.on_input_dialog_processor(dialog, params, user_input)
+        valid, dialog, params, user_input, error_message = await game.dialogs.on_input_dialog_processor(dialog, params, user_input)
        
         current_users_dialog[message.chat.id] = dialog
         current_users_params[message.chat.id] = params       
@@ -194,7 +194,7 @@ async def echo_handler(message: Message):
                 print("После пользовательского ввода следующий диалог не установлен, так как он не указан в текущем диалоге")
         
         # Удаляем пользовательское сообщение с вводом и обновляем последнее сообщение бота
-        await message.delete()
+        #await message.delete()
         
         last_bot_message = current_users_last_bot_message.get(message.chat.id, None)
         print("last_bot_message", last_bot_message.text)
@@ -202,7 +202,8 @@ async def echo_handler(message: Message):
         if last_bot_message is not None:
             await main(
                 last_bot_message,
-                edit=True
+                #edit=True
+                edit=False
             )
         else:
             print("Последнее сообщение бота не нашлось")

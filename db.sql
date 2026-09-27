@@ -164,7 +164,7 @@ INSERT INTO "player_dialog_choices" VALUES (54,9,4,56);
 INSERT INTO "player_dialog_choices" VALUES (55,9,1,49);
 INSERT INTO "player_flag_types" VALUES (1,5020,1);
 INSERT INTO "player_flags" VALUES (9,1,'1');
-INSERT INTO "players" VALUES (9,6136061550,1,'2026-09-25 09:01:27.257004',NULL,4,6,2);
+INSERT INTO "players" VALUES (9,6136061550,1,'2026-09-25 09:01:27.257004',NULL,4,7,2);
 INSERT INTO "texts" VALUES (5000,1,'Привет тебе в игре 🔸️ <b>Fantasy Market</b> 🔸️! 
 Создай свой магазин в мире фэнтези и управляй им!
 
@@ -277,21 +277,25 @@ INSERT INTO "texts" VALUES (5023,1,'В игру');
 INSERT INTO "texts" VALUES (5024,1,'Главное меню');
 INSERT INTO "texts" VALUES (5025,1,'✨ Просмотр диалога ✨
 
-<b>ID</b>: {id}
-<b>Кнопки</b>: {buttons_count}
-<b>Комментарий</b>: {comment}
+<b>ID</b>: {{id}}
+<b>Кнопки</b>: {{buttons_count}}
+<b>Комментарий</b>: {{comment}}
 
 <b>Текст</b>:
-{text}
+{{text}}
 
-<b>Следующий диалог</b>: {next_dialog_id}
-{next_dialog_text}');
+<b>Следующий диалог</b>: {{next_dialog_id if next_dialog_id else "-"}}
+{% if next_dialog_id %}
+{next_dialog_text}
+{% endif %}');
 INSERT INTO "texts" VALUES (5026,1,'Установить себе и перейти');
 INSERT INTO "texts" VALUES (5027,1,'Редактировать текст');
 INSERT INTO "texts" VALUES (5028,1,'Добавить изображение');
 INSERT INTO "texts" VALUES (5029,1,'Добавить кнопку');
 INSERT INTO "texts" VALUES (5030,1,'В редактор диалогов');
-INSERT INTO "texts" VALUES (5031,1,'Страница редактора диалогов');
+INSERT INTO "texts" VALUES (5031,1,'✨ Редактор диалогов ✨
+
+Всего диалогов: {{ dialogs_count }}');
 INSERT INTO "texts" VALUES (5032,1,'Добавить');
 INSERT INTO "texts" VALUES (5033,1,'Просмотр');
 INSERT INTO "texts" VALUES (5034,1,'Список диалогов');

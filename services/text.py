@@ -2,6 +2,10 @@ from sqlalchemy import func, select
 
 from models.text import Text
 
+from jinja2 import TemplateSyntaxError
+
+from instances.jinja import jinja_env
+
 
 class TextService:
     def __init__(self, db):
@@ -60,3 +64,16 @@ class TextService:
             await session.commit()
 
             return True
+
+
+    def validate_template(self, template_text):
+        try:
+            jinja_env.from_string(template_text)
+        except TemplateSyntaxError as e:
+            return False, e
+
+        return True, None
+
+    async def render_template(self, template, template_params):
+        template = jinja_env.from_string(template)
+        return template.render(**template_params)
