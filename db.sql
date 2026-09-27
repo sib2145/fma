@@ -275,7 +275,17 @@ INSERT INTO "texts" VALUES (5021,1,'Редактор диалогов');
 INSERT INTO "texts" VALUES (5022,1,'Редактор текстов');
 INSERT INTO "texts" VALUES (5023,1,'В игру');
 INSERT INTO "texts" VALUES (5024,1,'Главное меню');
-INSERT INTO "texts" VALUES (5025,1,'Просмотр диалога');
+INSERT INTO "texts" VALUES (5025,1,'✨ Просмотр диалога ✨
+
+<b>ID</b>: {id}
+<b>Кнопки</b>: {buttons_count}
+<b>Комментарий</b>: {comment}
+
+<b>Текст</b>:
+{text}
+
+<b>Следующий диалог</b>: {next_dialog_id}
+{next_dialog_text}');
 INSERT INTO "texts" VALUES (5026,1,'Установить себе и перейти');
 INSERT INTO "texts" VALUES (5027,1,'Редактировать текст');
 INSERT INTO "texts" VALUES (5028,1,'Добавить изображение');

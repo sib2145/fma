@@ -34,7 +34,11 @@ from services.condition import (
 )
 
 
-    
+class TemplateParams(dict):
+    def __missing__(self, key):
+        return "{" + key + "}"
+        
+
 
 class DialogService:
     def __init__(self, db, text_service):
@@ -48,9 +52,16 @@ class DialogService:
         
         # Редактор диалогов - просмотр диалога
         if triggered_dialog.id == 6:
-            viewing_dialog = params.pop("dialog", None)
-            if viewing_dialog is not None:
-                triggered_dialog.text.text = f"Просмотр диалога с id {viewing_dialog.id}"
+            dialog = params.pop("dialog", None)
+            if dialog is not None:
+                #triggered_dialog.text.text = f"Просмотр диалога с id {viewing_dialog.id}"
+                text_params = TemplateParams(
+                    id = dialog.id,
+                    comment = dialog.comment,
+                    text = dialog.text.text,
+                    next_dialog_id = dialog.next_dialog_id or "-",
+                )
+                triggered_dialog.text.text = triggered_dialog.text.text.format_map(text_params)
             
         
         # Редактор диалогов - главная страница

@@ -54,6 +54,8 @@ class Dialog(Base):
         default=0,
         nullable=False,
     )
+    
+    comment: Mapped[str | None] = mapped_column(SQLText)
 
     text: Mapped["Text"] = relationship(
         "Text",
