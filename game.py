@@ -6,8 +6,10 @@ from services.player import PlayerService
 from services.text import TextService
 from services.dialog import DialogService
 
+from config import SHOW_EXTRA, DIALOGS_PER_PAGE
+
 class Game:
-    def __init__(self, show_extra=False):
+    def __init__(self):
         self.is_running = False
 
         self.players = PlayerService(db)
@@ -16,7 +18,8 @@ class Game:
         self.dialogs = DialogService(
             db,
             self.texts,
-            show_extra=show_extra,
+            show_extra=SHOW_EXTRA,
+            dialogs_per_page=DIALOGS_PER_PAGE,
         )
 
         print("Game init")

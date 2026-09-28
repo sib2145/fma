@@ -160,7 +160,8 @@ async def dialog_option_callback(
         await game.dialogs.on_close_dialog_processor(
             dialog,
             option_selected,
-            params
+            params,
+            option_index=option_index,
         )
     )
 

@@ -14,3 +14,9 @@ SHOW_EXTRA = config.getboolean(
     "show_extra",
     fallback=False,
 )
+
+DIALOGS_PER_PAGE = config.getint(
+    "dialog",
+    "dialogs_per_page",
+    fallback=10,
+)

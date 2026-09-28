@@ -7,6 +7,8 @@ from models.dialog_option import DialogOption
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
+import math
+
 from models.dialog import Dialog
 
 from sqlalchemy import select
@@ -35,17 +37,20 @@ from views.dialog import (
     DialogOptionView,
 )
 
-
 class DialogService:
     def __init__(
         self,
         db,
         text_service,
         show_extra=False,
+        dialogs_per_page=10,
     ):
         self.db = db
         self.text_service = text_service
+
         self.show_extra = show_extra
+        self.dialogs_per_page = dialogs_per_page
+
 
     
     # Срабатывает, когда пользователю показан диалог. Служит для предварительной обработки и замены значений
@@ -70,13 +75,115 @@ class DialogService:
             dialogs_count = await self.count()
 
             triggered_dialog.template_context["dialogs_count"] = dialogs_count
+            
+        # Редактор диалогов - список диалогов
+        elif triggered_dialog.id == 10:
+            import math
+
+            dialogs_count = await self.count()
+
+            pages_count = max(
+                1,
+                math.ceil(
+                    dialogs_count / self.dialogs_per_page
+                ),
+            )
+
+            page = params.get(
+                "dialog_list_page",
+                1,
+            )
+
+            try:
+                page = int(page)
+            except (TypeError, ValueError):
+                page = 1
+
+            page = max(
+                1,
+                min(page, pages_count),
+            )
+
+            params["dialog_list_page"] = page
+
+            dialogs = await self.get_page(
+                page=page,
+                per_page=self.dialogs_per_page,
+            )
+
+            triggered_dialog.options.clear()
+
+            # Верхняя пагинация
+            triggered_dialog.options.append(
+                await self._create_dynamic_option(
+                    dialog_id=triggered_dialog.id,
+                    text="◀ Назад",
+                    next_dialog_id=triggered_dialog.id,
+                )
+            )
+
+            triggered_dialog.options.append(
+                await self._create_dynamic_option(
+                    dialog_id=triggered_dialog.id,
+                    text="Вперёд ▶",
+                    next_dialog_id=triggered_dialog.id,
+                )
+            )
+
+            # Кнопки диалогов.
+            for dialog in dialogs:
+                option = await self._create_dynamic_option(
+                    dialog_id=triggered_dialog.id,
+                    text=(
+                        f"{dialog.id}. "
+                        f"{dialog.comment or dialog.text.text}"
+                    ),
+                    next_dialog_id=dialog.id,
+                )
+
+                triggered_dialog.options.append(option)
+
+            # Назад.
+            if page > 1:
+                triggered_dialog.options.append(
+                    await self._create_dynamic_option(
+                        dialog_id=triggered_dialog.id,
+                        text="◀ Назад",
+                        next_dialog_id=triggered_dialog.id,
+                    )
+                )
+
+            # Вперёд.
+            if page < pages_count:
+                triggered_dialog.options.append(
+                    await self._create_dynamic_option(
+                        dialog_id=triggered_dialog.id,
+                        text="Вперёд ▶",
+                        next_dialog_id=triggered_dialog.id,
+                    )
+                )
+
+            triggered_dialog.template_context.update({
+                "dialogs_count": dialogs_count,
+                "dialog_list_page": page,
+                "dialog_list_pages": pages_count,
+                "dialogs_per_page": self.dialogs_per_page,
+            })
+
 
 
         
         return triggered_dialog, params   # Возвращаем обратно при необходимости модифицированный объект (для дальнейшей отрисовки и т.д.)
     
     # Срабатывает, когда пользователь выбрал какую то опцию в диалоге
-    async def on_close_dialog_processor(self, triggered_dialog, option_selected, params):
+    async def on_close_dialog_processor(
+        self,
+        triggered_dialog,
+        option_selected,
+        params,
+        option_index=None,
+    ):
+
         
         print("close dialog processor, id: ", triggered_dialog.id)
         
@@ -94,6 +201,82 @@ class DialogService:
                 option_selected.show_dialog_mode = (
                     2 if viewed_dialog.is_extra else 1
                 )
+                
+        # Редактор диалогов — список диалогов
+        elif (
+            triggered_dialog.id == 10
+            and option_index is not None
+        ):
+            dialogs_count = await self.count()
+
+            pages_count = max(
+                1,
+                math.ceil(
+                    dialogs_count / self.dialogs_per_page
+                ),
+            )
+
+            page = params.get(
+                "dialog_list_page",
+                1,
+            )
+
+            try:
+                page = int(page)
+            except (TypeError, ValueError):
+                page = 1
+
+            page = max(
+                1,
+                min(page, pages_count),
+            )
+
+            # Первые две кнопки — верхняя пагинация.
+            # Последние две — нижняя пагинация.
+            #
+            # 0                  — ◀ Назад
+            # 1                  — Вперёд ▶
+            # 2 ... N+1          — диалоги
+            # N+2                — ◀ Назад
+            # N+3                — Вперёд ▶
+
+            dialogs_on_page = min(
+                self.dialogs_per_page,
+                max(
+                    0,
+                    dialogs_count
+                    - (page - 1) * self.dialogs_per_page,
+                ),
+            )
+
+            dialogs_start_index = 2
+            dialogs_end_index = (
+                dialogs_start_index + dialogs_on_page
+            )
+
+            bottom_previous_index = dialogs_end_index
+            bottom_next_index = dialogs_end_index + 1
+
+            # ◀ Назад
+            if option_index in (
+                0,
+                bottom_previous_index,
+            ):
+                if page <= 1:
+                    params["dialog_list_page"] = pages_count
+                else:
+                    params["dialog_list_page"] = page - 1
+
+            # Вперёд ▶
+            elif option_index in (
+                1,
+                bottom_next_index,
+            ):
+                if page >= pages_count:
+                    params["dialog_list_page"] = 1
+                else:
+                    params["dialog_list_page"] = page + 1
+
         
         return triggered_dialog, option_selected, params  # Возвращаем обратно при необходимости модифицированные объекты
         
@@ -473,7 +656,7 @@ class DialogService:
                 select(Dialog)
                 .join(
                     Text,
-                    Dialog.text_id == Text.id,
+                    Dialog.text_id == Text.id
                 )
                 .options(
                     selectinload(Dialog.text)
@@ -484,6 +667,7 @@ class DialogService:
                         f"%{search_text}%"
                     ),
                 )
+                .order_by(Dialog.id)
             )
 
             if not self.show_extra:
@@ -491,11 +675,10 @@ class DialogService:
                     Dialog.is_extra == 0
                 )
 
-            query = query.order_by(Dialog.id)
-
             result = await session.execute(query)
 
             return list(result.scalars())
+
 
             
     async def get_option_for_dialog(
@@ -1066,3 +1249,34 @@ class DialogService:
         #    )
 
         return dialog
+
+
+    async def _create_dynamic_option(
+        self,
+        dialog_id: int,
+        text: str,
+        next_dialog_id: int | None,
+    ) -> DialogOptionView:
+
+        from views.text import TextView
+
+        return DialogOptionView(
+            id=None,
+            dialog_id=dialog_id,
+
+            condition=None,
+            weight=None,
+
+            text=TextView(
+                id=None,
+                locale_id=1,
+                template=text,
+                text=text,
+            ),
+
+            next_dialog_id=next_dialog_id,
+            next_dialog_text=None,
+
+            show_dialog_mode=None,
+            save_choice=False,
+        )
