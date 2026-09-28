@@ -70,11 +70,12 @@ async def main(
 
     builder = InlineKeyboardBuilder()
 
-    for option in dialog.options:
+    for index, option in enumerate(dialog.options):
         builder.button(
             text=option.text.text,
-            callback_data=f"dialog:option:{option.id}"
+            callback_data=f"dialog:option:{index}"
         )
+
 
     builder.adjust(1)
     
@@ -107,14 +108,9 @@ async def dialog_option_callback(
 ):
     await callback.answer()
 
-    option_id = int(
+    option_index = int(
         callback.data.split(":")[-1]
     )
-    
-    option = await game.dialogs.get_option_by_id(option_id)
-    
-    if option is None:
-        return
 
     player = await game.players.get_by_telegram_id(
         callback.from_user.id
@@ -122,29 +118,54 @@ async def dialog_option_callback(
 
     if player is None:
         return
-        
-    dialog = current_users_dialog.get(callback.message.chat.id, None)
-    
+
+    dialog = current_users_dialog.get(
+        callback.message.chat.id,
+        None
+    )
+
     if dialog is None:
-        # Если диалог устарел, то есть между открытием и нажатием сервер был перезагружен, то переотправляем последнее сообщение
+        # Если диалог устарел, то есть между открытием
+        # и нажатием сервер был перезагружен,
+        # то переотправляем последнее сообщение.
         print("Диалог устарел")
         await callback.message.delete()
         await main(callback.message)
         return
-        
-    option_selected = None
-    for option in dialog.options:
-        if option.id == option_id:
-            option_selected = option
-            break
-    
-    #   Работа с сессионными переменными, а также передача их в событие открытия диалога и сохранение модифицированных значений, если там был обработчик
-    params = current_users_params.get(callback.message.chat.id, {})
-    
-    # Процессор нажатия кнопки для перехвата события закрытия диалога, после нажатия, но до обработки результатов нажатия
-    dialog, option_selected, params = await game.dialogs.on_close_dialog_processor(dialog, option_selected, params)
-    
-    # Помечаем выбор, устанавливаем следующий дилаог и т.д., если это требуется в соответствии с кнопкой
+
+    # Индекс должен соответствовать существующей кнопке
+    # текущего DialogView.
+    if option_index < 0 or option_index >= len(dialog.options):
+        print(
+            f"Недопустимый индекс кнопки: {option_index}"
+        )
+        return
+
+    # Получаем именно ту кнопку, которая была отображена
+    # пользователю. Здесь не обращаемся к БД за DialogOption.
+    option_selected = dialog.options[option_index]
+
+    # Работа с сессионными переменными, а также передача
+    # их в событие закрытия диалога и сохранение
+    # модифицированных значений, если там был обработчик.
+    params = current_users_params.get(
+        callback.message.chat.id,
+        {}
+    )
+
+    # Процессор нажатия кнопки для перехвата события
+    # закрытия диалога, после нажатия, но до обработки
+    # результатов нажатия.
+    dialog, option_selected, params = (
+        await game.dialogs.on_close_dialog_processor(
+            dialog,
+            option_selected,
+            params
+        )
+    )
+
+    # Помечаем выбор, устанавливаем следующий диалог
+    # и т.д., если это требуется в соответствии с кнопкой.
     next_dialog_id = await game.players.choose_dialog_option(
         player=player,
         dialog=dialog,
@@ -154,13 +175,14 @@ async def dialog_option_callback(
     if next_dialog_id is None:
         return
 
-    # Обновляем сообщение, так как уже должен быть установлен следующий диалог
+    # Обновляем сообщение, так как уже должен быть
+    # установлен следующий диалог.
     await main(
         callback.message,
         edit=True,
         player=player
     )
-
+    
 
 # Обработчик для сообщений ввода текста в диалог 
 @dialog_router.message(F.text)

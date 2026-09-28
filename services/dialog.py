@@ -37,9 +37,16 @@ from views.dialog import (
 
 
 class DialogService:
-    def __init__(self, db, text_service):
+    def __init__(
+        self,
+        db,
+        text_service,
+        show_extra=False,
+    ):
         self.db = db
         self.text_service = text_service
+        self.show_extra = show_extra
+
     
     # Срабатывает, когда пользователю показан диалог. Служит для предварительной обработки и замены значений
     async def on_open_dialog_processor(self, triggered_dialog, params):
@@ -60,13 +67,7 @@ class DialogService:
         # Редактор диалогов - главная страница
         elif triggered_dialog.id == 7:
 
-            async with self.db.session_factory() as session:
-                result = await session.execute(
-                    select(func.count(Dialog.id))
-                    .where(Dialog.is_extra == 0)
-                )
-
-                dialogs_count = result.scalar_one()
+            dialogs_count = await self.count()
 
             triggered_dialog.template_context["dialogs_count"] = dialogs_count
 
@@ -414,52 +415,88 @@ class DialogService:
 
     async def count(self) -> int:
         async with self.db.session_factory() as session:
-            result = await session.execute(
-                select(func.count(Dialog.id))
+            query = select(
+                func.count(Dialog.id)
             )
 
+            if not self.show_extra:
+                query = query.where(
+                    Dialog.is_extra == 0
+                )
+
+            result = await session.execute(query)
+
             return result.scalar_one()
+
 
     async def get_page(
         self,
         page: int,
-        per_page: int
+        per_page: int,
     ) -> list[Dialog]:
+
         async with self.db.session_factory() as session:
             offset = (page - 1) * per_page
 
-            result = await session.execute(
+            query = (
                 select(Dialog)
                 .options(
                     selectinload(Dialog.text)
                 )
+            )
+
+            if not self.show_extra:
+                query = query.where(
+                    Dialog.is_extra == 0
+                )
+
+            query = (
+                query
                 .order_by(Dialog.id)
                 .offset(offset)
                 .limit(per_page)
             )
 
+            result = await session.execute(query)
+
             return list(result.scalars())
+
 
     async def search(
         self,
         search_text: str,
-        locale_id: int = 1
+        locale_id: int = 1,
     ) -> list[Dialog]:
+
         async with self.db.session_factory() as session:
-            result = await session.execute(
+            query = (
                 select(Dialog)
-                .join(Text, Dialog.text_id == Text.id)
+                .join(
+                    Text,
+                    Dialog.text_id == Text.id,
+                )
                 .options(
                     selectinload(Dialog.text)
                 )
                 .where(
                     Text.locale_id == locale_id,
-                    Text.text.ilike(f"%{search_text}%")
+                    Text.text.ilike(
+                        f"%{search_text}%"
+                    ),
                 )
-                .order_by(Dialog.id)
             )
 
+            if not self.show_extra:
+                query = query.where(
+                    Dialog.is_extra == 0
+                )
+
+            query = query.order_by(Dialog.id)
+
+            result = await session.execute(query)
+
             return list(result.scalars())
+
             
     async def get_option_for_dialog(
         self,

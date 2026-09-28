@@ -7,13 +7,18 @@ from services.text import TextService
 from services.dialog import DialogService
 
 class Game:
-    def __init__(self):
+    def __init__(self, show_extra=False):
         self.is_running = False
-        
+
         self.players = PlayerService(db)
         self.texts = TextService(db)
-        self.dialogs = DialogService(db, self.texts)
-        
+
+        self.dialogs = DialogService(
+            db,
+            self.texts,
+            show_extra=show_extra,
+        )
+
         print("Game init")
 
     async def run(self):

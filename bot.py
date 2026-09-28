@@ -5,8 +5,6 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-import configparser
-
 from textwrap import dedent #Убирает отступы в тексте
 
 from handlers.welcome import welcome_router
@@ -17,13 +15,7 @@ from handlers.basic_handlers import router
 from instances.game import game
 from instances.db import db
 
-def load_config():
-    config = configparser.ConfigParser()
-    config.read("config.ini")
-
-    return config
-
-config = load_config()
+from config import config
 
 TOKEN = config["telegram"]["token"]
 
