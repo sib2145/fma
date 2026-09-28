@@ -140,7 +140,7 @@ INSERT INTO "dialog_options" VALUES (65,6,NULL,4,5029,NULL,1,NULL);
 INSERT INTO "dialog_options" VALUES (66,6,NULL,5,5030,7,1,NULL);
 INSERT INTO "dialog_options" VALUES (67,7,NULL,1,5032,8,1,NULL);
 INSERT INTO "dialog_options" VALUES (68,7,NULL,2,5033,9,1,NULL);
-INSERT INTO "dialog_options" VALUES (69,7,NULL,3,5034,NULL,1,NULL);
+INSERT INTO "dialog_options" VALUES (69,7,NULL,3,5034,10,1,NULL);
 INSERT INTO "dialog_options" VALUES (70,7,NULL,4,5035,NULL,1,NULL);
 INSERT INTO "dialog_options" VALUES (71,7,NULL,5,5036,NULL,1,NULL);
 INSERT INTO "dialog_options" VALUES (72,8,NULL,1,5038,7,1,NULL);
@@ -153,7 +153,7 @@ INSERT INTO "dialogs" VALUES (6,5025,NULL,NULL,0,0,1,0,'Просмотр диа�
 INSERT INTO "dialogs" VALUES (7,5031,NULL,NULL,0,0,1,0,'Страница редактора диалогов');
 INSERT INTO "dialogs" VALUES (8,5037,NULL,6,0,0,1,1,'Ввод текста нового диалога');
 INSERT INTO "dialogs" VALUES (9,5039,NULL,6,0,0,1,1,'Ввод id диалога для просмотра');
-INSERT INTO "dialogs" VALUES (10,5040,NULL,NULL,1,0,1,0,NULL);
+INSERT INTO "dialogs" VALUES (10,5040,NULL,NULL,1,0,1,0,'Список диалогов');
 INSERT INTO "dialogs" VALUES (11,5041,NULL,NULL,1,0,1,0,NULL);
 INSERT INTO "dialogs" VALUES (12,5042,NULL,NULL,1,0,1,0,NULL);
 INSERT INTO "dialogs" VALUES (13,5043,NULL,NULL,1,0,1,0,NULL);
@@ -165,7 +165,7 @@ INSERT INTO "player_dialog_choices" VALUES (54,9,4,56);
 INSERT INTO "player_dialog_choices" VALUES (56,9,1,49);
 INSERT INTO "player_flag_types" VALUES (1,5020,1);
 INSERT INTO "player_flags" VALUES (9,1,'1');
-INSERT INTO "players" VALUES (9,6136061550,1,'2026-09-25 09:01:27.257004',NULL,1,7,2);
+INSERT INTO "players" VALUES (9,6136061550,1,'2026-09-25 09:01:27.257004',NULL,1,10,2);
 INSERT INTO "texts" VALUES (5000,1,'Привет тебе в игре 🔸️ <b>Fantasy Market</b> 🔸️! 
 Создай свой магазин в мире фэнтези и управляй им!
 
