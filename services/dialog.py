@@ -30,6 +30,12 @@ from services.condition import (
     LogicalOperator,
 )
 
+from views.dialog import (
+    DialogView,
+    DialogOptionView,
+)
+
+
 class DialogService:
     def __init__(self, db, text_service):
         self.db = db
@@ -43,24 +49,17 @@ class DialogService:
         # Редактор диалогов - просмотр диалога
         if triggered_dialog.id == 6:
             dialog = params.pop("dialog", None)
-            if dialog is not None:
-                template_params = {
-                    "id": dialog.id,
-                    "comment": dialog.comment,
-                    "text": dialog.text.text,
-                    "next_dialog_id": dialog.next_dialog_id,
-                    "next_dialog_text": (
-                        dialog.next_dialog.text.text
-                        if dialog.next_dialog is not None
-                        else None
-                    ),
-                    "buttons_count": len(dialog.options),
-                }
-                triggered_dialog.text.text = await self.text_service.render_template(triggered_dialog.text.text, template_params)
+            #dialog = params.get("dialog", None)
+            
+            if triggered_dialog is not None:
+                triggered_dialog.template_context.update({
+                    "viewed_dialog": dialog,
+                })
             
         
         # Редактор диалогов - главная страница
         elif triggered_dialog.id == 7:
+
             async with self.db.session_factory() as session:
                 result = await session.execute(
                     select(func.count(Dialog.id))
@@ -69,14 +68,8 @@ class DialogService:
 
                 dialogs_count = result.scalar_one()
 
-            template_params = {
-                "dialogs_count": dialogs_count,
-            }
+            triggered_dialog.template_context["dialogs_count"] = dialogs_count
 
-            triggered_dialog.text.text = await self.text_service.render_template(
-                triggered_dialog.text.text,
-                template_params,
-            )
 
         
         return triggered_dialog, params   # Возвращаем обратно при необходимости модифицированный объект (для дальнейшей отрисовки и т.д.)
@@ -126,36 +119,43 @@ class DialogService:
         
         return valid, triggered_dialog, params, user_input, error_message
 
-    async def get_by_id(self, dialog_id: int) -> Dialog | None:
+    async def get_by_id(
+        self,
+        dialog_id: int
+    ) -> DialogView | None:
+
         async with self.db.session_factory() as session:
             result = await session.execute(
                 select(Dialog)
                 .options(
                     selectinload(Dialog.text),
+
                     selectinload(Dialog.next_dialog)
                         .selectinload(Dialog.text),
+
                     selectinload(Dialog.options)
-                        .selectinload(DialogOption.text)
+                        .selectinload(DialogOption.text),
+
+                    selectinload(Dialog.options)
+                        .selectinload(DialogOption.next_dialog)
+                        .selectinload(Dialog.text),
                 )
                 .where(Dialog.id == dialog_id)
             )
 
             dialog = result.scalar_one_or_none()
 
-            if dialog is not None:
-                dialog.options.sort(
-                    key=lambda option: option.weight or 0
-                )
+            if dialog is None:
+                return None
 
-            return dialog
-            
-    #async def get_by_id_processed(self, dialog_id: int):
-    #    dialog = await self.get_by_id(dialog_id)
-    #    if Dialog != None:
-    #        options = {}
-    #        for option in dialog.options:
-    #            option[option.id] = 
-    #        return dialog_id, dialog.text.text
+            dialog.options.sort(
+                key=lambda option: option.weight or 0
+            )
+
+            return await self._create_dialog_view(
+                dialog
+            )
+
 
 
     async def create(
@@ -882,3 +882,129 @@ class DialogService:
                 f"{value_name} must be an integer, "
                 f"got {value!r}"
             ) from exc
+
+
+    async def _create_text_view(
+        self,
+        text
+    ):
+        if text is None:
+            return None
+
+        return await self.text_service.create_view(text)
+
+    async def _create_option_view(
+        self,
+        option
+    ) -> DialogOptionView:
+
+        next_dialog_text = None
+
+        if option.next_dialog is not None:
+            next_dialog_text = await self.text_service.create_view(
+                option.next_dialog.text
+            )
+
+        return DialogOptionView(
+            id=option.id,
+            dialog_id=option.dialog_id,
+            condition=option.condition,
+            weight=option.weight,
+            text=await self.text_service.create_view(
+                option.text
+            ),
+            next_dialog_id=option.next_dialog_id,
+            next_dialog_text=next_dialog_text,
+            save_choice=option.save_choice,
+        )
+
+    async def _create_dialog_view(
+        self,
+        dialog
+    ) -> DialogView:
+
+        next_dialog_text = None
+
+        if dialog.next_dialog is not None:
+            next_dialog_text = await self.text_service.create_view(
+                dialog.next_dialog.text
+            )
+
+        options = [
+            await self._create_option_view(option)
+            for option in dialog.options
+        ]
+
+        return DialogView(
+            id=dialog.id,
+            text_id=dialog.text_id,
+            text=await self.text_service.create_view(
+                dialog.text
+            ),
+            image=dialog.image,
+            next_dialog_id=dialog.next_dialog_id,
+            next_dialog_text=next_dialog_text,
+            save_choice=dialog.save_choice,
+            multiselect=dialog.multiselect,
+            is_extra=dialog.is_extra,
+            input_type=dialog.input_type,
+            comment=dialog.comment,
+            options=options,
+        )
+
+    def build_template_context(
+        self,
+        dialog: DialogView
+    ) -> dict:
+
+        context = {
+            #"dialog_id": dialog.id,
+            #"dialog_comment": dialog.comment,
+            #"buttons_count": len(dialog.options),
+            #"next_dialog_id": dialog.next_dialog_id,
+            #"next_dialog_text": (
+            #    dialog.next_dialog_text.text
+            #    if dialog.next_dialog_text is not None
+            #    else None
+            #),
+        }
+
+        context.update(
+            dialog.template_context
+        )
+
+        return context
+
+    async def render_view(
+        self,
+        dialog: DialogView
+    ) -> DialogView:
+
+        template_context = self.build_template_context(
+            dialog
+        )
+
+        await self.text_service.render_view(
+            dialog.text,
+            template_context
+        )
+
+        for option in dialog.options:
+            await self.text_service.render_view(
+                option.text,
+                template_context
+            )
+
+        #    if option.next_dialog_text is not None:
+        #        await self.text_service.render_view(
+        #            option.next_dialog_text,
+        #            template_context
+        #        )
+
+        #if dialog.next_dialog_text is not None:
+        #    await self.text_service.render_view(
+        #        dialog.next_dialog_text,
+        #        template_context
+        #    )
+
+        return dialog

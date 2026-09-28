@@ -63,6 +63,10 @@ async def main(
         
         current_users_dialog[message.chat.id] = dialog
         current_users_params[message.chat.id] = params
+        
+        dialog = await game.dialogs.render_view(
+            dialog
+        )
 
     builder = InlineKeyboardBuilder()
 

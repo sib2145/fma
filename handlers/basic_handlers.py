@@ -25,8 +25,8 @@ async def enter_adm(message: Message, edit = False):
     player = await game.players.get_by_telegram_id(message.chat.id)
     if player:
         # Если игрок зарегистрирован, переключаем в режим служебного диалога и ставим диалог админа
-        await game.players.set_show_dialog_mode(player, 2)
-        await game.players.set_current_dialog(player, 5, True)
+        await game.players.set_show_dialog_mode(player.id, 2)
+        await game.players.set_current_dialog(player.id, 5, True)
         await dialog_show(message, edit)
         
 @router.callback_query(F.data=="adm:main")
@@ -42,7 +42,7 @@ async def enter_game(message: Message, edit = False):
     player = await game.players.get_by_telegram_id(message.chat.id)
     if player and player.current_dialog_id is not None:
         # Если игрок зарегистрирован и у него есть текущий сюжетный диалог, переключаем в режим сюжетного диалога и обновляем
-        await game.players.set_show_dialog_mode(player, 1)
+        await game.players.set_show_dialog_mode(player.id, 1)
         await dialog_show(message, edit)
         
 @router.callback_query(F.data=="game:main")

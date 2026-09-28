@@ -150,7 +150,7 @@ async def create_account_confirm(callback: CallbackQuery):
     
     dialog_id = 1
     
-    await game.players.set_current_dialog(player, dialog_id)
+    await game.players.set_current_dialog(player.id, dialog_id)
     
     from handlers.dialog import main as dialog_show
     await dialog_show(callback.message, True)

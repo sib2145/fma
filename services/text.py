@@ -1,6 +1,7 @@
 from sqlalchemy import func, select
 
 from models.text import Text
+from views.text import TextView
 
 from jinja2 import TemplateSyntaxError
 
@@ -8,6 +9,7 @@ from instances.jinja import jinja_env
 
 
 class TextService:
+
     def __init__(self, db):
         self.db = db
 
@@ -65,8 +67,10 @@ class TextService:
 
             return True
 
-
-    def validate_template(self, template_text):
+    def validate_template(
+        self,
+        template_text: str
+    ):
         try:
             jinja_env.from_string(template_text)
         except TemplateSyntaxError as e:
@@ -74,6 +78,36 @@ class TextService:
 
         return True, None
 
-    async def render_template(self, template, template_params):
+    async def create_view(
+        self,
+        text: Text
+    ) -> TextView:
+        return TextView(
+            id=text.id,
+            locale_id=text.locale_id,
+            template=text.text or "",
+            text=text.text or "",
+        )
+
+    async def render_view(
+        self,
+        text_view: TextView,
+        template_params: dict
+    ) -> TextView:
+        text_view.text = await self.render_template(
+            text_view.template,
+            template_params,
+        )
+
+        return text_view
+
+    async def render_template(
+        self,
+        template: str,
+        template_params: dict
+    ) -> str:
         template = jinja_env.from_string(template)
-        return template.render(**template_params)
+
+        return template.render(
+            **template_params
+        )

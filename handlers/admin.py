@@ -400,7 +400,7 @@ async def set_self_dialog_callback(
     
     player = await game.players.get_by_telegram_id(callback.message.chat.id)
 
-    await game.players.set_current_dialog(player, dialog_id)
+    await game.players.set_current_dialog(player.id, dialog_id)
     
     await enter_world(callback.message, True)
 
