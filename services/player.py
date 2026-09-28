@@ -8,6 +8,7 @@ from models.dialog_option import DialogOption
 from models.player_dialog_choice import PlayerDialogChoice
 
 from views.player import PlayerView
+from views.dialog import DialogView, DialogOptionView
 
 
 class PlayerService:
@@ -183,9 +184,9 @@ class PlayerService:
 
     async def choose_dialog_option(
         self,
-        player: Player,
-        dialog: Dialog,
-        option: DialogOption,
+        player: PlayerView,
+        dialog: DialogView,
+        option: DialogOptionView,
     ) -> int | None:
         async with self.db.session_factory() as session:
             db_player = await session.get(
@@ -197,23 +198,46 @@ class PlayerService:
                 print("Пользователь не найден")
                 return None
 
-            if (db_player.current_dialog_id is None) or (db_player.current_extra_dialog_id is None):
-                print("У пользователя нет активных диалогов")
-                return None
-
             if option is None:
                 print("Нажатая кнопка не передана")
                 return None
 
+            # Запоминаем режим, в котором игрок находился
+            # до обработки выбранной кнопки.
+            current_show_dialog_mode = player.show_dialog_mode
+
+            # Определяем текущий диалог игрока в зависимости
+            # от активного режима.
+            if current_show_dialog_mode == 1:
+                current_dialog_id = db_player.current_dialog_id
+
+            elif current_show_dialog_mode == 2:
+                current_dialog_id = db_player.current_extra_dialog_id
+
+            else:
+                print(
+                    f"Неизвестный show_dialog_mode: "
+                    f"{current_show_dialog_mode}"
+                )
+                return None
+
+            if current_dialog_id is None:
+                print("У пользователя нет активного диалога")
+                return None
+
             # Защита от подделанного callback.
             # Кнопка должна принадлежать текущему диалогу игрока.
-            if (option.dialog_id != db_player.current_dialog_id) and (option.dialog_id != db_player.current_extra_dialog_id):
+            if option.dialog_id != current_dialog_id:
                 print("Кнопка должна принадлежать текущему диалогу игрока")
                 return None
 
             # Сохраняем выбор только если это разрешено
             # настройками текущего диалога.
-            if dialog.save_choice and option.save_choice and player.show_dialog_mode == 1:
+            if (
+                dialog.save_choice
+                and option.save_choice
+                and current_show_dialog_mode == 1
+            ):
 
                 # ---------------------------------------------
                 # Обычный режим:
@@ -223,14 +247,14 @@ class PlayerService:
                     await session.execute(
                         delete(PlayerDialogChoice).where(
                             PlayerDialogChoice.player_id == db_player.id,
-                            PlayerDialogChoice.dialog_id == db_player.current_dialog_id,
+                            PlayerDialogChoice.dialog_id == current_dialog_id,
                         )
                     )
 
                     session.add(
                         PlayerDialogChoice(
                             player_id=db_player.id,
-                            dialog_id=db_player.current_dialog_id,
+                            dialog_id=current_dialog_id,
                             option_id=option.id,
                         )
                     )
@@ -244,7 +268,7 @@ class PlayerService:
                         select(PlayerDialogChoice.id)
                         .where(
                             PlayerDialogChoice.player_id == db_player.id,
-                            PlayerDialogChoice.dialog_id == db_player.current_dialog_id,
+                            PlayerDialogChoice.dialog_id == current_dialog_id,
                             PlayerDialogChoice.option_id == option.id,
                         )
                         .limit(1)
@@ -259,11 +283,10 @@ class PlayerService:
                         session.add(
                             PlayerDialogChoice(
                                 player_id=db_player.id,
-                                dialog_id=db_player.current_dialog_id,
+                                dialog_id=current_dialog_id,
                                 option_id=option.id,
                             )
                         )
-            await session.commit()
 
             # ---------------------------------------------
             # Определяем следующий диалог.
@@ -284,23 +307,55 @@ class PlayerService:
 
             elif dialog.next_dialog_id is not None:
                 next_dialog_id = dialog.next_dialog_id
-                
 
             if next_dialog_id is not None:
-                #print("next_dialog_id: ", next_dialog_id)
-                if player.show_dialog_mode == 1:
-                    await self.set_current_dialog(player.id, next_dialog_id, False)
-                    player.current_dialog_id = next_dialog_id
-                elif player.show_dialog_mode == 2:
-                    await self.set_current_dialog(player.id, next_dialog_id, True)
-                    player.current_extra_dialog_id = next_dialog_id
-                else:
-                    print(f"Неизвестный show_dialog_mode: {player.show_dialog_mode}")
-                #db_player.current_dialog_id = next_dialog_id
 
-            #await session.commit()
+                # ---------------------------------------------
+                # Определяем режим следующего диалога.
+                #
+                # Если option.show_dialog_mode не задан,
+                # сохраняем текущий режим игрока.
+                #
+                # Если задан:
+                # 1 → обычный режим
+                # 2 → extra-режим
+                # ---------------------------------------------
+                next_show_dialog_mode = (
+                    option.show_dialog_mode
+                    if option.show_dialog_mode is not None
+                    else current_show_dialog_mode
+                )
+
+                if not await self.set_dialog_state(
+                    db_player,
+                    next_dialog_id,
+                    next_show_dialog_mode,
+                ):
+                    print(
+                        f"Неизвестный show_dialog_mode: "
+                        f"{next_show_dialog_mode}"
+                    )
+                    return None
+
+                # ---------------------------------------------
+                # Синхронизируем PlayerView.
+                # ORM Player уже изменён через set_dialog_state().
+                # ---------------------------------------------
+                player.show_dialog_mode = next_show_dialog_mode
+
+                if next_show_dialog_mode == 1:
+                    player.current_dialog_id = next_dialog_id
+
+                elif next_show_dialog_mode == 2:
+                    player.current_extra_dialog_id = next_dialog_id
+
+            # Сохраняем выбор и новое состояние игрока
+            # одной транзакцией.
+            await session.commit()
 
             return next_dialog_id
+
+
 
 
     async def choice_next_dialog(
@@ -371,3 +426,22 @@ class PlayerService:
                 player.current_extra_dialog_id = next_dialog_id
 
             return player
+            
+    async def set_dialog_state(
+        self,
+        db_player: Player,
+        dialog_id: int,
+        show_dialog_mode: int,
+    ) -> bool:
+        if show_dialog_mode == 1:
+            db_player.current_dialog_id = dialog_id
+
+        elif show_dialog_mode == 2:
+            db_player.current_extra_dialog_id = dialog_id
+
+        else:
+            return False
+
+        db_player.show_dialog_mode = show_dialog_mode
+
+        return True

@@ -16,6 +16,8 @@ class DialogOptionView:
 
     next_dialog_id: int | None
     next_dialog_text: TextView | None
+    
+    show_dialog_mode: int | None
 
     save_choice: bool
 

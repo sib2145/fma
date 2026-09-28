@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS "dialog_options" (
 	"text_id"	INTEGER NOT NULL,
 	"next_dialog_id"	INTEGER,
 	"save_choice"	INTEGER NOT NULL DEFAULT 1,
+	"show_dialog_mode"	INTEGER,
 	PRIMARY KEY("id" AUTOINCREMENT)
 );
 CREATE TABLE IF NOT EXISTS "dialogs" (
@@ -120,29 +121,29 @@ INSERT INTO "condition_types" VALUES (5,21,5,'or');
 INSERT INTO "condition_types" VALUES (6,22,6,'function result');
 INSERT INTO "condition_types" VALUES (7,23,7,'player flag <x> = <y>');
 INSERT INTO "conditions" VALUES (1,2,NULL,4,1,1,'1',NULL);
-INSERT INTO "dialog_options" VALUES (49,1,NULL,1,5007,2,1);
-INSERT INTO "dialog_options" VALUES (50,2,NULL,1,5009,NULL,1);
-INSERT INTO "dialog_options" VALUES (52,2,NULL,2,5011,NULL,1);
-INSERT INTO "dialog_options" VALUES (53,2,NULL,3,5012,NULL,1);
-INSERT INTO "dialog_options" VALUES (54,2,NULL,4,5013,NULL,1);
-INSERT INTO "dialog_options" VALUES (55,2,NULL,5,5014,3,0);
-INSERT INTO "dialog_options" VALUES (56,4,NULL,1,5017,1,1);
-INSERT INTO "dialog_options" VALUES (57,3,NULL,1,5018,2,1);
-INSERT INTO "dialog_options" VALUES (58,5,NULL,1,5021,7,1);
-INSERT INTO "dialog_options" VALUES (59,5,NULL,2,5022,NULL,1);
-INSERT INTO "dialog_options" VALUES (60,5,NULL,3,5023,NULL,1);
-INSERT INTO "dialog_options" VALUES (61,5,NULL,4,5024,NULL,1);
-INSERT INTO "dialog_options" VALUES (62,6,NULL,1,5026,NULL,1);
-INSERT INTO "dialog_options" VALUES (63,6,NULL,2,5027,NULL,1);
-INSERT INTO "dialog_options" VALUES (64,6,NULL,3,5028,NULL,1);
-INSERT INTO "dialog_options" VALUES (65,6,NULL,4,5029,NULL,1);
-INSERT INTO "dialog_options" VALUES (66,6,NULL,5,5030,7,1);
-INSERT INTO "dialog_options" VALUES (67,7,NULL,1,5032,8,1);
-INSERT INTO "dialog_options" VALUES (68,7,NULL,2,5033,9,1);
-INSERT INTO "dialog_options" VALUES (69,7,NULL,3,5034,NULL,1);
-INSERT INTO "dialog_options" VALUES (70,7,NULL,4,5035,NULL,1);
-INSERT INTO "dialog_options" VALUES (71,7,NULL,5,5036,NULL,1);
-INSERT INTO "dialog_options" VALUES (72,8,NULL,1,5038,7,1);
+INSERT INTO "dialog_options" VALUES (49,1,NULL,1,5007,2,1,NULL);
+INSERT INTO "dialog_options" VALUES (50,2,NULL,1,5009,NULL,1,NULL);
+INSERT INTO "dialog_options" VALUES (52,2,NULL,2,5011,NULL,1,NULL);
+INSERT INTO "dialog_options" VALUES (53,2,NULL,3,5012,NULL,1,NULL);
+INSERT INTO "dialog_options" VALUES (54,2,NULL,4,5013,NULL,1,NULL);
+INSERT INTO "dialog_options" VALUES (55,2,NULL,5,5014,3,0,NULL);
+INSERT INTO "dialog_options" VALUES (56,4,NULL,1,5017,1,1,NULL);
+INSERT INTO "dialog_options" VALUES (57,3,NULL,1,5018,2,1,NULL);
+INSERT INTO "dialog_options" VALUES (58,5,NULL,1,5021,7,1,NULL);
+INSERT INTO "dialog_options" VALUES (59,5,NULL,2,5022,NULL,1,NULL);
+INSERT INTO "dialog_options" VALUES (60,5,NULL,3,5023,NULL,1,NULL);
+INSERT INTO "dialog_options" VALUES (61,5,NULL,4,5024,NULL,1,NULL);
+INSERT INTO "dialog_options" VALUES (62,6,NULL,1,5026,NULL,1,NULL);
+INSERT INTO "dialog_options" VALUES (63,6,NULL,2,5027,NULL,1,NULL);
+INSERT INTO "dialog_options" VALUES (64,6,NULL,3,5028,NULL,1,NULL);
+INSERT INTO "dialog_options" VALUES (65,6,NULL,4,5029,NULL,1,NULL);
+INSERT INTO "dialog_options" VALUES (66,6,NULL,5,5030,7,1,NULL);
+INSERT INTO "dialog_options" VALUES (67,7,NULL,1,5032,8,1,NULL);
+INSERT INTO "dialog_options" VALUES (68,7,NULL,2,5033,9,1,NULL);
+INSERT INTO "dialog_options" VALUES (69,7,NULL,3,5034,NULL,1,NULL);
+INSERT INTO "dialog_options" VALUES (70,7,NULL,4,5035,NULL,1,NULL);
+INSERT INTO "dialog_options" VALUES (71,7,NULL,5,5036,NULL,1,NULL);
+INSERT INTO "dialog_options" VALUES (72,8,NULL,1,5038,7,1,NULL);
 INSERT INTO "dialogs" VALUES (1,5006,NULL,NULL,1,0,0,0,'Сюжетный 1');
 INSERT INTO "dialogs" VALUES (2,5008,NULL,4,1,1,0,0,'Сюжетный 2');
 INSERT INTO "dialogs" VALUES (3,5015,NULL,2,0,0,0,0,'Сюжетный, подсказка кем был и прибавки');
@@ -151,20 +152,20 @@ INSERT INTO "dialogs" VALUES (5,5019,NULL,NULL,0,0,1,0,'Панель админ�
 INSERT INTO "dialogs" VALUES (6,5025,NULL,NULL,0,0,1,0,'Просмотр диалога');
 INSERT INTO "dialogs" VALUES (7,5031,NULL,NULL,0,0,1,0,'Страница редактора диалогов');
 INSERT INTO "dialogs" VALUES (8,5037,NULL,6,0,0,1,1,'Ввод текста нового диалога');
-INSERT INTO "dialogs" VALUES (9,5039,NULL,6,0,0,0,1,'Ввод id диалога для просмотра');
-INSERT INTO "dialogs" VALUES (10,5040,NULL,NULL,1,0,0,0,NULL);
-INSERT INTO "dialogs" VALUES (11,5041,NULL,NULL,1,0,0,0,NULL);
-INSERT INTO "dialogs" VALUES (12,5042,NULL,NULL,1,0,0,0,NULL);
-INSERT INTO "dialogs" VALUES (13,5043,NULL,NULL,1,0,0,0,NULL);
-INSERT INTO "dialogs" VALUES (14,5044,NULL,NULL,1,0,0,0,NULL);
+INSERT INTO "dialogs" VALUES (9,5039,NULL,6,0,0,1,1,'Ввод id диалога для просмотра');
+INSERT INTO "dialogs" VALUES (10,5040,NULL,NULL,1,0,1,0,NULL);
+INSERT INTO "dialogs" VALUES (11,5041,NULL,NULL,1,0,1,0,NULL);
+INSERT INTO "dialogs" VALUES (12,5042,NULL,NULL,1,0,1,0,NULL);
+INSERT INTO "dialogs" VALUES (13,5043,NULL,NULL,1,0,1,0,NULL);
+INSERT INTO "dialogs" VALUES (14,5044,NULL,NULL,1,0,1,0,NULL);
 INSERT INTO "locales" VALUES (1,'ru');
 INSERT INTO "player_dialog_choices" VALUES (50,9,2,50);
 INSERT INTO "player_dialog_choices" VALUES (53,9,2,52);
 INSERT INTO "player_dialog_choices" VALUES (54,9,4,56);
-INSERT INTO "player_dialog_choices" VALUES (55,9,1,49);
+INSERT INTO "player_dialog_choices" VALUES (56,9,1,49);
 INSERT INTO "player_flag_types" VALUES (1,5020,1);
 INSERT INTO "player_flags" VALUES (9,1,'1');
-INSERT INTO "players" VALUES (9,6136061550,1,'2026-09-25 09:01:27.257004',NULL,4,7,2);
+INSERT INTO "players" VALUES (9,6136061550,1,'2026-09-25 09:01:27.257004',NULL,1,7,2);
 INSERT INTO "texts" VALUES (5000,1,'Привет тебе в игре 🔸️ <b>Fantasy Market</b> 🔸️! 
 Создай свой магазин в мире фэнтези и управляй им!
 
@@ -277,16 +278,15 @@ INSERT INTO "texts" VALUES (5023,1,'В игру');
 INSERT INTO "texts" VALUES (5024,1,'Главное меню');
 INSERT INTO "texts" VALUES (5025,1,'✨ Просмотр диалога ✨
 
-<b>ID</b>: {{id}}
-<b>Кнопки</b>: {{buttons_count}}
-<b>Комментарий</b>: {{comment}}
+<b>ID</b>: {{dialog.id}} {{ id }}
+<b>Кнопки</b>: {{dialog.options | length}}
+<b>Комментарий</b>: {{dialog.comment}}
 
 <b>Текст</b>:
-{{text}}
+{{dialog.text.text}}
 
-<b>Следующий диалог</b>: {{next_dialog_id if next_dialog_id else "-"}}
-{% if next_dialog_id %}
-{next_dialog_text}
+<b>Следующий диалог (все кнопки)</b>: {{dialog.next_dialog_id if dialog.next_dialog_id else "-"}}
+{% if dialog.next_dialog_id %}<b>Комментарий:</b> {{dialog.next_dialog_comment}}
 {% endif %}');
 INSERT INTO "texts" VALUES (5026,1,'Установить себе и перейти');
 INSERT INTO "texts" VALUES (5027,1,'Редактировать текст');

@@ -40,6 +40,11 @@ class DialogOption(Base):
         nullable=True
     )
     
+    show_dialog_mode: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True
+    )
+    
     save_choice: Mapped[bool] = mapped_column(
         Boolean,
         default=True,

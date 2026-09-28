@@ -79,6 +79,21 @@ class DialogService:
         
         print("close dialog processor, id: ", triggered_dialog.id)
         
+        # Редактор диалогов — просмотр диалога
+        # "Установить себе и перейти"
+        if (
+            triggered_dialog.id == 6
+            and option_selected is not None
+            and option_selected.id == 62
+        ):
+            viewed_dialog = params.get("dialog")
+
+            if viewed_dialog is not None:
+                option_selected.next_dialog_id = viewed_dialog.id
+                option_selected.show_dialog_mode = (
+                    2 if viewed_dialog.is_extra else 1
+                )
+        
         return triggered_dialog, option_selected, params  # Возвращаем обратно при необходимости модифицированные объекты
         
     # Срабатывает, когда пользователь ввёл что то после диалога, который спрашивает у пользователя ввод
@@ -915,6 +930,7 @@ class DialogService:
             ),
             next_dialog_id=option.next_dialog_id,
             next_dialog_text=next_dialog_text,
+            show_dialog_mode=option.show_dialog_mode,
             save_choice=option.save_choice,
         )
 
