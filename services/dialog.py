@@ -48,12 +48,12 @@ class DialogService:
         
         # Редактор диалогов - просмотр диалога
         if triggered_dialog.id == 6:
-            dialog = params.pop("dialog", None)
-            #dialog = params.get("dialog", None)
+            #dialog = params.pop("dialog", None)
+            dialog = params.get("dialog", None)
             
             if triggered_dialog is not None:
                 triggered_dialog.template_context.update({
-                    "viewed_dialog": dialog,
+                    "dialog": dialog,
                 })
             
         
@@ -924,11 +924,15 @@ class DialogService:
     ) -> DialogView:
 
         next_dialog_text = None
+        next_dialog_comment = None
 
         if dialog.next_dialog is not None:
             next_dialog_text = await self.text_service.create_view(
                 dialog.next_dialog.text
             )
+            
+            next_dialog_comment = dialog.next_dialog.comment
+            
 
         options = [
             await self._create_option_view(option)
@@ -943,6 +947,7 @@ class DialogService:
             ),
             image=dialog.image,
             next_dialog_id=dialog.next_dialog_id,
+            next_dialog_comment=next_dialog_comment,
             next_dialog_text=next_dialog_text,
             save_choice=dialog.save_choice,
             multiselect=dialog.multiselect,

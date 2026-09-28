@@ -30,6 +30,7 @@ class DialogView:
     image: str | None
 
     next_dialog_id: int | None
+    next_dialog_comment: str | None
     next_dialog_text: TextView | None
 
     save_choice: bool
