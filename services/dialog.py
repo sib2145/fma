@@ -7,8 +7,6 @@ from models.dialog_option import DialogOption
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
-import math
-
 from models.dialog import Dialog
 
 from sqlalchemy import select
@@ -113,23 +111,6 @@ class DialogService:
 
             triggered_dialog.options.clear()
 
-            # Верхняя пагинация
-            triggered_dialog.options.append(
-                await self._create_dynamic_option(
-                    dialog_id=triggered_dialog.id,
-                    text="◀ Назад",
-                    next_dialog_id=triggered_dialog.id,
-                )
-            )
-
-            triggered_dialog.options.append(
-                await self._create_dynamic_option(
-                    dialog_id=triggered_dialog.id,
-                    text="Вперёд ▶",
-                    next_dialog_id=triggered_dialog.id,
-                )
-            )
-
             # Кнопки диалогов.
             for dialog in dialogs:
                 option = await self._create_dynamic_option(
@@ -207,6 +188,8 @@ class DialogService:
             triggered_dialog.id == 10
             and option_index is not None
         ):
+            import math
+
             dialogs_count = await self.count()
 
             pages_count = max(
@@ -231,51 +214,42 @@ class DialogService:
                 min(page, pages_count),
             )
 
-            # Первые две кнопки — верхняя пагинация.
-            # Последние две — нижняя пагинация.
-            #
-            # 0                  — ◀ Назад
-            # 1                  — Вперёд ▶
-            # 2 ... N+1          — диалоги
-            # N+2                — ◀ Назад
-            # N+3                — Вперёд ▶
-
+            # Количество обычных кнопок с диалогами
+            # на текущей странице.
             dialogs_on_page = min(
                 self.dialogs_per_page,
                 max(
                     0,
                     dialogs_count
-                    - (page - 1) * self.dialogs_per_page,
+                    - (page - 1)
+                    * self.dialogs_per_page,
                 ),
             )
 
-            dialogs_start_index = 2
-            dialogs_end_index = (
-                dialogs_start_index + dialogs_on_page
-            )
-
-            bottom_previous_index = dialogs_end_index
-            bottom_next_index = dialogs_end_index + 1
-
-            # ◀ Назад
-            if option_index in (
-                0,
-                bottom_previous_index,
+            # Если нажата кнопка "Назад".
+            if (
+                page > 1
+                and option_index == dialogs_on_page
             ):
-                if page <= 1:
-                    params["dialog_list_page"] = pages_count
-                else:
-                    params["dialog_list_page"] = page - 1
+                params["dialog_list_page"] = page - 1
 
-            # Вперёд ▶
-            elif option_index in (
-                1,
-                bottom_next_index,
+            # Если "Назад" существует, то "Вперёд"
+            # идёт следующим индексом.
+            elif (
+                page > 1
+                and page < pages_count
+                and option_index == dialogs_on_page + 1
             ):
-                if page >= pages_count:
-                    params["dialog_list_page"] = 1
-                else:
-                    params["dialog_list_page"] = page + 1
+                params["dialog_list_page"] = page + 1
+
+            # Если "Назад" нет, "Вперёд" сразу
+            # идёт после кнопок диалогов.
+            elif (
+                page == 1
+                and page < pages_count
+                and option_index == dialogs_on_page
+            ):
+                params["dialog_list_page"] = page + 1
 
         
         return triggered_dialog, option_selected, params  # Возвращаем обратно при необходимости модифицированные объекты
