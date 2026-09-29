@@ -56,7 +56,3 @@ class DialogView:
         default_factory=dict
     )
     
-    # Данные для передачи между функциями-процессорами в рамках активной сессии
-    processor_data: dict[str, Any] = field(
-        default_factory=dict
-    )

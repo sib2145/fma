@@ -165,7 +165,7 @@ INSERT INTO "player_dialog_choices" VALUES (54,9,4,56);
 INSERT INTO "player_dialog_choices" VALUES (56,9,1,49);
 INSERT INTO "player_flag_types" VALUES (1,5020,1);
 INSERT INTO "player_flags" VALUES (9,1,'1');
-INSERT INTO "players" VALUES (9,6136061550,1,'2026-09-25 09:01:27.257004',NULL,1,10,2);
+INSERT INTO "players" VALUES (9,6136061550,1,'2026-09-25 09:01:27.257004',NULL,1,7,2);
 INSERT INTO "texts" VALUES (5000,1,'Привет тебе в игре 🔸️ <b>Fantasy Market</b> 🔸️! 
 Создай свой магазин в мире фэнтези и управляй им!
 

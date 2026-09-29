@@ -37,6 +37,8 @@ from views.dialog import (
     DialogOptionView,
 )
 
+from views.dialog_session import DialogSession
+
 class DialogService:
     def __init__(
         self,
@@ -54,30 +56,84 @@ class DialogService:
 
     
     # Срабатывает, когда пользователю показан диалог. Служит для предварительной обработки и замены значений
-    async def on_open_dialog_processor(self, triggered_dialog, params):
-        print("open dialog processor, id: ", triggered_dialog.id)
-        print("open dialog processor params: ", params)
-        
-        # Редактор диалогов - просмотр диалога
-        if triggered_dialog.id == 6:
-            #dialog = params.pop("dialog", None)
-            dialog = params.get("dialog", None)
-            
-            if triggered_dialog is not None:
-                triggered_dialog.template_context.update({
-                    "dialog": dialog,
-                })
-            
-        
-        # Редактор диалогов - главная страница
-        elif triggered_dialog.id == 7:
+    async def on_open_dialog_processor(
+        self,
+        session: DialogSession,
+    ) -> DialogSession:
+        """
+        Срабатывает при открытии диалога.
 
+        Processor получает всю сессию пользователя и может
+        изменять dialog и processor_data.
+        """
+
+        dialog = session.dialog
+
+        if dialog is None:
+            return session
+
+        print(
+            "open dialog processor, id: ",
+            dialog.id,
+        )
+
+        print(
+            "open dialog processor data: ",
+            session.processor_data,
+        )
+
+        # --------------------------------------------------
+        # Получаем последнее выбранное действие.
+        #
+        # Оно было записано Telegram handler'ом перед
+        # вызовом on_close.
+        #
+        # pop() нужен, чтобы одно событие не обработалось
+        # повторно при следующем открытии.
+        # --------------------------------------------------
+
+        selected_option = session.processor_data.pop(
+            "selected_option",
+            None,
+        )
+
+        if selected_option is not None:
+            print(
+                "selected option:",
+                selected_option.id,
+                selected_option.processor_flag,
+            )
+
+        # --------------------------------------------------
+        # Редактор диалогов - просмотр диалога
+        # --------------------------------------------------
+
+        if dialog.id == 6:
+            viewed_dialog = session.processor_data.get(
+                "dialog"
+            )
+
+            if viewed_dialog is not None:
+                dialog.template_context.update({
+                    "dialog": viewed_dialog,
+                })
+
+        # --------------------------------------------------
+        # Редактор диалогов - главная страница
+        # --------------------------------------------------
+
+        elif dialog.id == 7:
             dialogs_count = await self.count()
 
-            triggered_dialog.template_context["dialogs_count"] = dialogs_count
-            
+            dialog.template_context[
+                "dialogs_count"
+            ] = dialogs_count
+
+        # --------------------------------------------------
         # Редактор диалогов - список диалогов
-        elif triggered_dialog.id == 10:
+        # --------------------------------------------------
+
+        elif dialog.id == 10:
             import math
 
             dialogs_count = await self.count()
@@ -89,8 +145,9 @@ class DialogService:
                 ),
             )
 
-            page = params.get(
-                "dialog_list_page",
+            # Получаем текущую страницу из session.
+            page = session.processor_data.get(
+                "page",
                 1,
             )
 
@@ -99,185 +156,255 @@ class DialogService:
             except (TypeError, ValueError):
                 page = 1
 
+            # --------------------------------------------------
+            # Обрабатываем выбранную динамическую кнопку.
+            #
+            # Здесь больше НЕТ option_index.
+            # --------------------------------------------------
+
+            if selected_option is not None:
+
+                if (
+                    selected_option.processor_flag
+                    == "previous_page"
+                ):
+                    page -= 1
+
+                elif (
+                    selected_option.processor_flag
+                    == "next_page"
+                ):
+                    page += 1
+
+            # Ограничиваем страницу допустимым диапазоном.
             page = max(
                 1,
                 min(page, pages_count),
             )
 
-            params["dialog_list_page"] = page
+            session.processor_data[
+                "page"
+            ] = page
 
             dialogs = await self.get_page(
                 page=page,
                 per_page=self.dialogs_per_page,
             )
 
-            triggered_dialog.options.clear()
+            dialog.options.clear()
 
+            # --------------------------------------------------
             # Кнопки диалогов.
-            for dialog in dialogs:
+            # --------------------------------------------------
+
+            for item in dialogs:
                 option = await self._create_dynamic_option(
-                    dialog_id=triggered_dialog.id,
+                    dialog_id=dialog.id,
                     text=(
-                        f"{dialog.id}. "
-                        f"{dialog.comment or dialog.text.text}"
+                        f"{item.id}. "
+                        f"{item.comment or item.text.text}"
                     ),
-                    next_dialog_id=dialog.id,
+                    next_dialog_id=item.id,
                     processor_flag="open_dialog",
                 )
 
-                triggered_dialog.options.append(option)
+                dialog.options.append(option)
 
-            # Назад.
+            # --------------------------------------------------
+            # Кнопка "Назад".
+            # --------------------------------------------------
+
             if page > 1:
-                triggered_dialog.options.append(
+                dialog.options.append(
                     await self._create_dynamic_option(
-                        dialog_id=triggered_dialog.id,
+                        dialog_id=dialog.id,
                         text="◀ Назад",
-                        next_dialog_id=triggered_dialog.id,
+                        next_dialog_id=dialog.id,
                         processor_flag="previous_page",
                     )
                 )
 
-            # Вперёд.
+            # --------------------------------------------------
+            # Кнопка "Вперёд".
+            # --------------------------------------------------
+
             if page < pages_count:
-                triggered_dialog.options.append(
+                dialog.options.append(
                     await self._create_dynamic_option(
-                        dialog_id=triggered_dialog.id,
+                        dialog_id=dialog.id,
                         text="Вперёд ▶",
-                        next_dialog_id=triggered_dialog.id,
+                        next_dialog_id=dialog.id,
                         processor_flag="next_page",
                     )
                 )
 
-
-            triggered_dialog.template_context.update({
+            dialog.template_context.update({
                 "dialogs_count": dialogs_count,
                 "dialog_list_page": page,
                 "dialog_list_pages": pages_count,
                 "dialogs_per_page": self.dialogs_per_page,
             })
 
+        return session
 
-
-        
-        return triggered_dialog, params   # Возвращаем обратно при необходимости модифицированный объект (для дальнейшей отрисовки и т.д.)
     
     # Срабатывает, когда пользователь выбрал какую то опцию в диалоге
     async def on_close_dialog_processor(
         self,
-        triggered_dialog,
-        option_selected,
-        params,
-        option_index=None,
-    ):
+        session: DialogSession,
+    ) -> DialogSession:
+        """
+        Срабатывает после выбора пользователем опции,
+        но до стандартной обработки этой опции.
+        """
 
-        
-        print("close dialog processor, id: ", triggered_dialog.id)
-        
+        dialog = session.dialog
+
+        if dialog is None:
+            return session
+
+        print(
+            "close dialog processor, id: ",
+            dialog.id,
+        )
+
+        selected_option = session.processor_data.get(
+            "selected_option"
+        )
+
+        if selected_option is not None:
+            print(
+                "close dialog selected option:",
+                selected_option.id,
+                selected_option.processor_flag,
+            )
+
+        # --------------------------------------------------
         # Редактор диалогов — просмотр диалога
+        #
         # "Установить себе и перейти"
+        # --------------------------------------------------
+
         if (
-            triggered_dialog.id == 6
-            and option_selected is not None
-            and option_selected.id == 62
+            dialog.id == 6
+            and selected_option is not None
+            and selected_option.id == 62
         ):
-            viewed_dialog = params.get("dialog")
+            viewed_dialog = session.processor_data.get(
+                "dialog"
+            )
 
             if viewed_dialog is not None:
-                option_selected.next_dialog_id = viewed_dialog.id
-                option_selected.show_dialog_mode = (
-                    2 if viewed_dialog.is_extra else 1
-                )
-                
-        # Редактор диалогов — список диалогов
-        elif (
-            triggered_dialog.id == 10
-            and option_selected is not None
-        ):
-            selected_flag = option_selected.processor_flag
-
-            if selected_flag == "previous_page":
-                page = params.get(
-                    "dialog_list_page",
-                    1,
+                selected_option.next_dialog_id = (
+                    viewed_dialog.id
                 )
 
-                try:
-                    page = int(page)
-                except (TypeError, ValueError):
-                    page = 1
-
-                params["dialog_list_page"] = max(
-                    1,
-                    page - 1,
+                selected_option.show_dialog_mode = (
+                    2
+                    if viewed_dialog.is_extra
+                    else 1
                 )
 
-            elif selected_flag == "next_page":
-                dialogs_count = await self.count()
+        # --------------------------------------------------
+        # Здесь больше ничего не нужно делать для dialog 10.
+        #
+        # Переключение страницы происходит в
+        # on_open_dialog_processor, когда он получает
+        # selected_option.processor_flag.
+        # --------------------------------------------------
 
-                pages_count = max(
-                    1,
-                    math.ceil(
-                        dialogs_count / self.dialogs_per_page
-                    ),
-                )
+        return session
 
-                page = params.get(
-                    "dialog_list_page",
-                    1,
-                )
-
-                try:
-                    page = int(page)
-                except (TypeError, ValueError):
-                    page = 1
-
-                params["dialog_list_page"] = min(
-                    page + 1,
-                    pages_count,
-                )
-
-
-        
-        return triggered_dialog, option_selected, params  # Возвращаем обратно при необходимости модифицированные объекты
         
     # Срабатывает, когда пользователь ввёл что то после диалога, который спрашивает у пользователя ввод
-    async def on_input_dialog_processor(self, triggered_dialog, params, user_input):
-        print("input dialog processor, id: ", triggered_dialog.id)
+    async def on_input_dialog_processor(
+        self,
+        session: DialogSession,
+    ) -> tuple[
+        bool,
+        DialogSession,
+        str | None,
+    ]:
+        """
+        Срабатывает после пользовательского текстового ввода.
+
+        Возвращает:
+            valid
+            session
+            error_message
+        """
+
+        dialog = session.dialog
+
+        if dialog is None:
+            return (
+                False,
+                session,
+                "Диалог не найден",
+            )
+
+        print(
+            "input dialog processor, id: ",
+            dialog.id,
+        )
+
+        user_input = session.user_input
+
         valid = True
         error_message = None
-        
-        # Перехваты пользовательского ввода в диалогах по id диалога, и соответственно либо действия, либо просто валидация типов и ввода
-        
+
+        # --------------------------------------------------
         # Ввод текста для добавления нового диалога в админке
-        if triggered_dialog.id == 8:
-            if user_input != "" and user_input is not None:
+        # --------------------------------------------------
+
+        if dialog.id == 8:
+            if (
+                user_input != ""
+                and user_input is not None
+            ):
                 dialog_id = await self.create(
                     text=user_input
                 )
-                
-                dialog = await self.get_by_id(dialog_id)
-                
-                params['dialog'] = dialog
+
+                created_dialog = await self.get_by_id(
+                    dialog_id
+                )
+
+                session.processor_data[
+                    "dialog"
+                ] = created_dialog
+
             else:
                 valid = False
-        
+
+        # --------------------------------------------------
         # Ввод id диалога для просмотра
-        elif triggered_dialog.id == 9:
+        # --------------------------------------------------
+
+        elif dialog.id == 9:
             try:
                 dialog_id = int(user_input)
-            except ValueError:
+            except (TypeError, ValueError):
                 valid = False
-                
+
             if valid:
-                dialog = await self.get_by_id(dialog_id)
-                if dialog is None:
-                    
+                viewed_dialog = await self.get_by_id(
+                    dialog_id
+                )
+
+                if viewed_dialog is None:
                     valid = False
                 else:
-                    params['dialog'] = dialog
-        
-        return valid, triggered_dialog, params, user_input, error_message
+                    session.processor_data[
+                        "dialog"
+                    ] = viewed_dialog
+
+        return (
+            valid,
+            session,
+            error_message,
+        )
+
 
     async def get_by_id(
         self,
@@ -1104,16 +1231,23 @@ class DialogService:
         return DialogOptionView(
             id=option.id,
             dialog_id=option.dialog_id,
+
             condition=option.condition,
             weight=option.weight,
+
             text=await self.text_service.create_view(
                 option.text
             ),
+
             next_dialog_id=option.next_dialog_id,
             next_dialog_text=next_dialog_text,
+
             show_dialog_mode=option.show_dialog_mode,
             save_choice=option.save_choice,
+
+            processor_flag=None,
         )
+
 
     async def _create_dialog_view(
         self,
@@ -1225,6 +1359,7 @@ class DialogService:
         return DialogOptionView(
             id=None,
             dialog_id=dialog_id,
+
             condition=None,
             weight=None,
 
