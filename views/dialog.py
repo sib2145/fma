@@ -20,6 +20,9 @@ class DialogOptionView:
     show_dialog_mode: int | None
 
     save_choice: bool
+    
+    # Флаг для процессоров для лучшей идентификации динамических кнопок. Не связан с id из базы данных.
+    processor_flag: str | None = None
 
 
 @dataclass
@@ -50,5 +53,10 @@ class DialogView:
     # Дополнительные переменные,
     # которые могут добавлять processors.
     template_context: dict[str, Any] = field(
+        default_factory=dict
+    )
+    
+    # Данные для передачи между функциями-процессорами в рамках активной сессии
+    processor_data: dict[str, Any] = field(
         default_factory=dict
     )

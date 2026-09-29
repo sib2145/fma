@@ -17,6 +17,8 @@ from models.text import Text
 from dataclasses import dataclass, field
 from enum import Enum
 
+import math
+
 from models.condition import Condition
 from models.condition_type import ConditionType
 from models.player_dialog_choice import PlayerDialogChoice
@@ -120,6 +122,7 @@ class DialogService:
                         f"{dialog.comment or dialog.text.text}"
                     ),
                     next_dialog_id=dialog.id,
+                    processor_flag="open_dialog",
                 )
 
                 triggered_dialog.options.append(option)
@@ -131,6 +134,7 @@ class DialogService:
                         dialog_id=triggered_dialog.id,
                         text="◀ Назад",
                         next_dialog_id=triggered_dialog.id,
+                        processor_flag="previous_page",
                     )
                 )
 
@@ -141,8 +145,10 @@ class DialogService:
                         dialog_id=triggered_dialog.id,
                         text="Вперёд ▶",
                         next_dialog_id=triggered_dialog.id,
+                        processor_flag="next_page",
                     )
                 )
+
 
             triggered_dialog.template_context.update({
                 "dialogs_count": dialogs_count,
@@ -186,70 +192,51 @@ class DialogService:
         # Редактор диалогов — список диалогов
         elif (
             triggered_dialog.id == 10
-            and option_index is not None
+            and option_selected is not None
         ):
-            import math
+            selected_flag = option_selected.processor_flag
 
-            dialogs_count = await self.count()
+            if selected_flag == "previous_page":
+                page = params.get(
+                    "dialog_list_page",
+                    1,
+                )
 
-            pages_count = max(
-                1,
-                math.ceil(
-                    dialogs_count / self.dialogs_per_page
-                ),
-            )
+                try:
+                    page = int(page)
+                except (TypeError, ValueError):
+                    page = 1
 
-            page = params.get(
-                "dialog_list_page",
-                1,
-            )
+                params["dialog_list_page"] = max(
+                    1,
+                    page - 1,
+                )
 
-            try:
-                page = int(page)
-            except (TypeError, ValueError):
-                page = 1
+            elif selected_flag == "next_page":
+                dialogs_count = await self.count()
 
-            page = max(
-                1,
-                min(page, pages_count),
-            )
+                pages_count = max(
+                    1,
+                    math.ceil(
+                        dialogs_count / self.dialogs_per_page
+                    ),
+                )
 
-            # Количество обычных кнопок с диалогами
-            # на текущей странице.
-            dialogs_on_page = min(
-                self.dialogs_per_page,
-                max(
-                    0,
-                    dialogs_count
-                    - (page - 1)
-                    * self.dialogs_per_page,
-                ),
-            )
+                page = params.get(
+                    "dialog_list_page",
+                    1,
+                )
 
-            # Если нажата кнопка "Назад".
-            if (
-                page > 1
-                and option_index == dialogs_on_page
-            ):
-                params["dialog_list_page"] = page - 1
+                try:
+                    page = int(page)
+                except (TypeError, ValueError):
+                    page = 1
 
-            # Если "Назад" существует, то "Вперёд"
-            # идёт следующим индексом.
-            elif (
-                page > 1
-                and page < pages_count
-                and option_index == dialogs_on_page + 1
-            ):
-                params["dialog_list_page"] = page + 1
+                params["dialog_list_page"] = min(
+                    page + 1,
+                    pages_count,
+                )
 
-            # Если "Назад" нет, "Вперёд" сразу
-            # идёт после кнопок диалогов.
-            elif (
-                page == 1
-                and page < pages_count
-                and option_index == dialogs_on_page
-            ):
-                params["dialog_list_page"] = page + 1
 
         
         return triggered_dialog, option_selected, params  # Возвращаем обратно при необходимости модифицированные объекты
@@ -1230,6 +1217,7 @@ class DialogService:
         dialog_id: int,
         text: str,
         next_dialog_id: int | None,
+        processor_flag: str | None = None,
     ) -> DialogOptionView:
 
         from views.text import TextView
@@ -1237,7 +1225,6 @@ class DialogService:
         return DialogOptionView(
             id=None,
             dialog_id=dialog_id,
-
             condition=None,
             weight=None,
 
@@ -1253,4 +1240,6 @@ class DialogService:
 
             show_dialog_mode=None,
             save_choice=False,
+
+            processor_flag=processor_flag,
         )
