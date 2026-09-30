@@ -110,7 +110,7 @@ class DialogService:
 
         if dialog.id == 6:
             viewed_dialog = session.processor_data.get(
-                "dialog"
+                "viewing_dialog"
             )
 
             if viewed_dialog is not None:
@@ -279,44 +279,34 @@ class DialogService:
                 selected_option.processor_flag,
             )
 
-        # --------------------------------------------------
         # Редактор диалогов — просмотр диалога
-        #
-        # "Установить себе и перейти"
-        # --------------------------------------------------
-
-        if (
-            dialog.id == 6
-            and selected_option is not None
-            and selected_option.id == 62
-        ):
-            viewed_dialog = session.processor_data.get(
-                "dialog"
+        if dialog.id == 6:
+            viewing_dialog = session.processor_data.get(
+                "viewing_dialog"
             )
 
-            if viewed_dialog is not None:
-                selected_option.next_dialog_id = (
-                    viewed_dialog.id
-                )
+            if viewing_dialog is not None:
+                # Кнопка "Установить себе и перейти"
+                if selected_option.id == 62:
+                    selected_option.next_dialog_id = (
+                        viewing_dialog.id
+                    )
 
-                selected_option.show_dialog_mode = (
-                    2
-                    if viewed_dialog.is_extra
-                    else 1
-                )
-
-        # --------------------------------------------------
-        # Здесь больше ничего не нужно делать для dialog 10.
-        #
-        # Переключение страницы происходит в
-        # on_open_dialog_processor, когда он получает
-        # selected_option.processor_flag.
-        # --------------------------------------------------
+                    selected_option.show_dialog_mode = (
+                        2
+                        if viewing_dialog.is_extra
+                        else 1
+                    )
+                
+                # Кнопка "редактировать текст"
+                elif selected_option.id == 63:
+                    session.processor_data["edit_dialog_id"] = viewing_dialog.id
 
         return session
 
         
     # Срабатывает, когда пользователь ввёл что то после диалога, который спрашивает у пользователя ввод
+    # Если функция вернула valid = True, то handler перебросит на указанный в базе следующий диалог (по его id). Иначе вернет в этот же за повторным вводом
     async def on_input_dialog_processor(
         self,
         session: DialogSession,
@@ -371,7 +361,7 @@ class DialogService:
                 )
 
                 session.processor_data[
-                    "dialog"
+                    "viewing_dialog"
                 ] = created_dialog
 
             else:
@@ -396,8 +386,35 @@ class DialogService:
                     valid = False
                 else:
                     session.processor_data[
-                        "dialog"
+                        "viewing_dialog"
                     ] = viewed_dialog
+        
+        # Редактирование текста диалога
+        elif dialog.id == 11:
+            edit_dialog_id = session.processor_data.get("edit_dialog_id")
+
+            if edit_dialog_id is None:
+                error_message = "Не передан edit_dialog_id"
+                valid = False
+
+            target_dialog = await self.get_by_id(edit_dialog_id)
+
+            if target_dialog is None:
+                error_message = "Редактируемый диалог не найден"
+                valid = False
+
+            if valid:
+                await self.text_service.update(
+                    text_id=target_dialog.text_id,
+                    text=user_input
+                )
+                
+                session.processor_data.pop("edit_dialog_id")
+                viewed_dialog = session.processor_data.get("viewing_dialog")
+                viewed_dialog.text.template = user_input
+                viewed_dialog.text.text = user_input
+            
+            
 
         return (
             valid,
