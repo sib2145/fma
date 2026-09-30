@@ -17,10 +17,27 @@ from instances.db import db
 
 from config import config
 
-TOKEN = config["telegram"]["token"]
+import argparse
 
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
+def parse_args():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--telegram",
+        action="store_true",
+        help="Запустить Telegram-бота",
+        default=True
+    )
+
+    parser.add_argument(
+        "--cli",
+        action="store_true",
+        help="Запустить консольный интерфейс",
+        default=True
+    )
+
+    return parser.parse_args()
+
 
 
 def parse_command(input_line: str):
@@ -100,8 +117,7 @@ async def console():
         command, args = parse_command(input_line)
 
         if command == "":
-            print("Остановка программы...")
-            await dp.stop_polling()
+            print("Run command stop...")
             return
 
         if command == "help":
@@ -248,10 +264,21 @@ async def console():
 
 
 async def main():
+    args = parse_args()
+    
+    print("Starting server with arguments: ", vars(args))
+
     game_task = asyncio.create_task(game.run())
     console_task = asyncio.create_task(console())
 
-    try:
+    tasks = [console_task]
+
+    if args.telegram:
+        TOKEN = config["telegram"]["token"]
+
+        bot = Bot(token=TOKEN)
+        dp = Dispatcher()
+
         dp.include_router(welcome_router)
         dp.include_router(dialog_router)
         dp.include_router(admin_router)
@@ -259,13 +286,27 @@ async def main():
 
         await bot.delete_webhook(drop_pending_updates=True)
 
-        await dp.start_polling(bot)
+        telegram_task = asyncio.create_task(
+            dp.start_polling(bot)
+        )
+
+        tasks.append(telegram_task)
+
+    try:
+        done, pending = await asyncio.wait(
+            tasks,
+            return_when=asyncio.FIRST_COMPLETED
+        )
 
     finally:
-        console_task.cancel()
+        for task in tasks:
+            if not task.done():
+                task.cancel()
 
         await game.stop()
         await game_task
+        
+        print("server stopped")
 
 
 if __name__ == "__main__":
