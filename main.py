@@ -55,62 +55,35 @@ def parse_args():
     
 async def process_cli_input(
     session: DialogSession,
-    input_line: str,
+    value: str,
 ):
-    dialog = session.dialog
+    # --------------------------------------------------
+    # Пустой ввод ничего не делает.
+    # --------------------------------------------------
 
-    if dialog is None:
-        print("Текущий диалог отсутствует.")
+    if not value:
         return
 
     # --------------------------------------------------
-    # Если диалог ожидает пользовательский ввод,
-    # любая непустая строка передаётся в processor.
+    # Ввод вида =N используется для выбора опции.
     #
-    # Важно: здесь строка НЕ разбирается как команда
-    # консоли или как выбор игровой опции.
+    # Это имеет приоритет над input_type.
+    # Поэтому даже диалог, ожидающий пользовательский
+    # текст, может иметь кнопки.
     # --------------------------------------------------
 
-    if dialog.input_type == 1:
-        await process_cli_value(
-            session,
-            input_line,
-        )
+    if value.startswith("="):
+        option_number = value[1:]
 
-        return
-
-    # --------------------------------------------------
-    # Если диалог не ожидает пользовательский ввод,
-    # выбор игровой опции осуществляется только через
-    # конструкцию:
-    #
-    #   =1
-    #   =2
-    #   =3
-    #
-    # Обычное число вроде "1" не является выбором.
-    # --------------------------------------------------
-
-    if input_line.startswith("="):
-        value = input_line[1:]
-
-        try:
-            option_number = int(value)
-        except ValueError:
+        if not option_number.isdigit():
             print(
-                "Неверный номер варианта. "
-                "Используйте, например: =1"
+                "Выбор опции должен иметь формат =N."
             )
             return
 
-        if not 1 <= option_number <= 99:
-            print(
-                "Номер варианта должен быть "
-                "от 1 до 99."
-            )
-            return
+        option_number = int(option_number)
 
-        await choose_cli_option(
+        await choose_cli_dialog_option(
             session,
             option_number,
         )
@@ -118,44 +91,31 @@ async def process_cli_input(
         return
 
     # --------------------------------------------------
-    # Всё остальное передаём как команду консоли.
+    # Если текущий диалог ожидает пользовательский
+    # ввод, передаём строку в input processor.
     # --------------------------------------------------
 
-    command, args = parse_command(
-        input_line
+    if (
+        session.dialog is not None
+        and session.dialog.input_type == 1
+    ):
+        await process_cli_value(
+            session,
+            value,
+        )
+
+        return
+
+    # --------------------------------------------------
+    # Обычный текст в диалоге, который не ожидает
+    # пользовательский ввод, ничего не делает.
+    # --------------------------------------------------
+
+    print(
+        "Этот диалог не ожидает текстовый ввод."
     )
 
-    if command == "help":
-        print()
-        print("Доступные команды:")
-        print("  help   - показать список команд")
-        print("  status - показать состояние игры")
-        print("  cli    - показать игровой диалог")
-        print("  =1-99  - выбрать вариант диалога")
-        print("  Enter  - остановить программу")
-        print()
 
-    elif command == "status":
-        print()
-        print("Сервер запущен.")
-
-        if session.dialog is not None:
-            print(
-                f"Текущий диалог: "
-                f"{session.dialog.id}"
-            )
-
-        print()
-
-    elif command == "cli":
-        await show_cli_dialog(
-            session
-        )
-
-    else:
-        print(
-            f"Неизвестная команда: {command}"
-        )
 
 async def process_cli_value(
     session: DialogSession,
@@ -320,128 +280,10 @@ async def process_cli_value(
         session
     )
 
-
-
-async def choose_cli_option(
-    session: DialogSession,
-    option_number: int,
-):
-    dialog = session.dialog
-
-    if dialog is None:
-        print(
-            "Текущий диалог отсутствует."
-        )
-        return
-
+async def show_cli_dialog(session):
     # --------------------------------------------------
-    # CLI использует человеческую нумерацию:
-    #
-    #   =1 -> options[0]
-    #   =2 -> options[1]
-    #   =3 -> options[2]
-    # --------------------------------------------------
-
-    index = option_number - 1
-
-    if (
-        index < 0
-        or index >= len(dialog.options)
-    ):
-        print(
-            f"Нет варианта с номером "
-            f"{option_number}."
-        )
-        return
-
-    option_selected = dialog.options[index]
-
-    print(
-        f"Выбран вариант: "
-        f"{option_number} "
-        f"({option_selected.text.text})"
-    )
-
-    # --------------------------------------------------
-    # Передаём выбранную кнопку в session.
-    # --------------------------------------------------
-
-    session.processor_data[
-        "selected_option"
-    ] = option_selected
-
-    # --------------------------------------------------
-    # Processor закрытия.
-    # --------------------------------------------------
-
-    session = await game.dialogs.on_close_dialog_processor(
-        session
-    )
-
-    option_selected = session.processor_data.get(
-        "selected_option"
-    )
-
-    if option_selected is None:
-        print(
-            "selected_option отсутствует "
-            "после on_close_dialog_processor."
-        )
-        return
-
-    # --------------------------------------------------
-    # CLI пока работает без зарегистрированного
-    # игрока, поэтому сохранение выбора в БД
-    # не выполняем.
-    # --------------------------------------------------
-
-    next_dialog_id = (
-        option_selected.next_dialog_id
-    )
-
-    if next_dialog_id is None:
-        next_dialog_id = (
-            dialog.next_dialog_id
-        )
-
-    if next_dialog_id is None:
-        print(
-            "Следующий диалог не указан."
-        )
-        return
-
-    next_dialog = await game.dialogs.get_by_id(
-        next_dialog_id
-    )
-
-    if next_dialog is None:
-        print(
-            f"Диалог {next_dialog_id} "
-            f"не найден."
-        )
-        return
-
-    # --------------------------------------------------
-    # Устанавливаем следующий диалог.
-    # --------------------------------------------------
-
-    session.dialog = next_dialog
-
-    # --------------------------------------------------
-    # Показываем новый диалог.
-    # --------------------------------------------------
-
-    await show_cli_dialog(
-        session
-    )
-    
-
-async def show_cli_dialog(
-    session: DialogSession,
-):
-    # --------------------------------------------------
-    # Если в session нет диалога, начинаем со
-    # стартового extra-диалога.
+    # Если текущий диалог отсутствует, устанавливаем
+    # стартовый extra-диалог для CLI.
     # --------------------------------------------------
 
     if session.dialog is None:
@@ -460,11 +302,26 @@ async def show_cli_dialog(
 
     # --------------------------------------------------
     # Processor открытия.
+    #
+    # Здесь выполняется вся динамическая подготовка
+    # диалога.
+    #
+    # Например, для диалога #6:
+    #
+    #   processor_data["viewing_dialog"]
+    #       ↓
+    #   dialog.template_context["dialog"]
+    #
+    # При этом session.dialog остаётся диалогом #6.
     # --------------------------------------------------
 
     session = await game.dialogs.on_open_dialog_processor(
         session
     )
+
+    # --------------------------------------------------
+    # Берём изменённый DialogView из session.
+    # --------------------------------------------------
 
     dialog = session.dialog
 
@@ -475,53 +332,92 @@ async def show_cli_dialog(
         return False
 
     # --------------------------------------------------
-    # Рендерим текст и динамические кнопки.
+    # Рендерим DialogView.
+    #
+    # Это тот же самый этап, который выполняется
+    # в Telegram handler.
+    #
+    # render_view() использует template_context,
+    # сформированный processor'ом.
+    #
+    # Поэтому для диалога #6:
+    #
+    #   dialog.id == 6
+    #
+    # но:
+    #
+    #   dialog.template_context["dialog"].id == 21
+    #
+    # и в текст шаблона #6 будут подставлены
+    # данные просматриваемого диалога #21.
     # --------------------------------------------------
 
     dialog = await game.dialogs.render_view(
         dialog
     )
 
+    # --------------------------------------------------
+    # Сохраняем отрендеренный DialogView в session.
+    #
+    # Это соответствует Telegram handler.
+    # --------------------------------------------------
+
     session.dialog = dialog
 
     # --------------------------------------------------
-    # Выводим диалог.
+    # Отображение.
     # --------------------------------------------------
 
     print()
     print("=" * 60)
+
     print(
         f"Диалог #{dialog.id}"
     )
+
     print("=" * 60)
 
-    print(dialog.text.text)
+    # --------------------------------------------------
+    # Показываем уже отрендеренный текст.
+    # --------------------------------------------------
 
-    print()
+    if dialog.text is not None:
+        print(
+            dialog.text.text
+        )
 
     # --------------------------------------------------
-    # input_type == 1 означает, что диалог ожидает
-    # пользовательский ввод.
+    # input_type и options независимы друг от друга.
+    #
+    # Диалог может одновременно:
+    #
+    #   - принимать текст;
+    #   - иметь кнопки.
     # --------------------------------------------------
 
     if dialog.input_type == 1:
+        print()
         print(
             "[Ожидается ввод]"
         )
 
-    elif not dialog.options:
-        print(
-            "[Нет доступных вариантов]"
-        )
+    # --------------------------------------------------
+    # Показываем кнопки независимо от input_type.
+    #
+    # Для CLI выбор выполняется через:
+    #
+    #   =1
+    #   =2
+    #   =3
+    # --------------------------------------------------
 
-    else:
+    if dialog.options:
+        print()
+
         for index, option in enumerate(
             dialog.options,
             start=1,
         ):
-            if index > 99:
-                break
-
             print(
                 f"={index}. {option.text.text}"
             )
@@ -529,6 +425,105 @@ async def show_cli_dialog(
     print("=" * 60)
 
     return True
+
+
+async def choose_cli_dialog_option(
+    session: DialogSession,
+    option_number: int,
+):
+    dialog = session.dialog
+
+    if dialog is None:
+        print(
+            "Текущий диалог отсутствует."
+        )
+        return
+
+    # --------------------------------------------------
+    # Получаем список доступных опций текущего диалога.
+    # --------------------------------------------------
+
+    options = dialog.options
+
+    if (
+        option_number < 1
+        or option_number > len(options)
+    ):
+        print(
+            f"Опция {option_number} не существует."
+        )
+        return
+
+    option = options[option_number - 1]
+
+    print(
+        f"Выбран вариант: "
+        f"{option_number} "
+        f"({option.text.text})"
+    )
+
+    # --------------------------------------------------
+    # Запоминаем выбранную опцию в session.
+    #
+    # Это тот же объект, который используется
+    # Telegram-обработчиком.
+    # --------------------------------------------------
+
+    session.selected_option = option
+
+    # --------------------------------------------------
+    # Передаём выбор в processor закрытия диалога.
+    #
+    # Processor может изменить session, например:
+    #   - processor_data
+    #   - selected_option
+    #   - другие данные контекста.
+    # --------------------------------------------------
+
+    session = await game.dialogs.on_close_dialog_processor(
+        session
+    )
+
+    # --------------------------------------------------
+    # После processor'а переходим по next_dialog_id
+    # выбранной опции.
+    # --------------------------------------------------
+
+    if option.next_dialog_id is None:
+        print(
+            "У выбранной опции "
+            "не указан следующий диалог."
+        )
+        return
+
+    next_dialog = await game.dialogs.get_by_id(
+        option.next_dialog_id
+    )
+
+    if next_dialog is None:
+        print(
+            f"Следующий диалог "
+            f"{option.next_dialog_id} не найден."
+        )
+        return
+
+    session.dialog = next_dialog
+
+    # --------------------------------------------------
+    # Показываем следующий диалог.
+    #
+    # Здесь будет вызван on_open processor,
+    # поэтому вся существующая логика админки
+    # продолжит работать.
+    # --------------------------------------------------
+
+    await show_cli_dialog(
+        session
+    )
+
+
+    
+
 
 
 
