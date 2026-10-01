@@ -463,19 +463,26 @@ async def choose_cli_dialog_option(
     )
 
     # --------------------------------------------------
-    # Сохраняем выбранную опцию в session.
+    # Сохраняем выбранную опцию в processor_data.
+    #
+    # Это тот же механизм, который используется
+    # Telegram handler.
     #
     # on_close_dialog_processor() получает выбранную
-    # опцию именно отсюда.
+    # опцию отсюда.
     # --------------------------------------------------
 
-    session.selected_option = option
+    session.processor_data["selected_option"] = option
 
     # --------------------------------------------------
     # Processor закрытия текущего диалога.
     #
-    # Он может изменить session и дополнительные
-    # данные процессора.
+    # Он может изменить session, например:
+    #
+    #   - изменить processor_data;
+    #   - изменить dialog;
+    #   - обработать processor_flag;
+    #   - изменить выбранную опцию.
     # --------------------------------------------------
 
     session = await game.dialogs.on_close_dialog_processor(
@@ -483,18 +490,32 @@ async def choose_cli_dialog_option(
     )
 
     # --------------------------------------------------
-    # Получаем выбранную опцию уже из обновлённой
-    # session.
+    # Получаем выбранную опцию после processor.
     #
-    # Это важно: processor мог изменить session.
+    # Processor может изменить её или удалить.
     # --------------------------------------------------
 
-    option = session.selected_option
+    option = session.processor_data.get(
+        "selected_option"
+    )
 
     if option is None:
         print(
             "После обработки диалога "
             "выбранная опция отсутствует."
+        )
+        return
+
+    # --------------------------------------------------
+    # Если processor уже изменил текущий диалог,
+    # не перезаписываем его обычным переходом.
+    #
+    # Это важно для специальных processor'ов.
+    # --------------------------------------------------
+
+    if session.dialog is not dialog:
+        await show_cli_dialog(
+            session
         )
         return
 
@@ -541,6 +562,7 @@ async def choose_cli_dialog_option(
     await show_cli_dialog(
         session
     )
+
     
 
 
