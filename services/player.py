@@ -191,7 +191,7 @@ class PlayerService:
         async with self.db.session_factory() as session:
             db_player = await session.get(
                 Player,
-                player.id,
+                player.id
             )
 
             if db_player is None:
@@ -210,7 +210,6 @@ class PlayerService:
             # от активного режима.
             if current_show_dialog_mode == 1:
                 current_dialog_id = db_player.current_dialog_id
-
             elif current_show_dialog_mode == 2:
                 current_dialog_id = db_player.current_extra_dialog_id
 
@@ -238,7 +237,6 @@ class PlayerService:
                 and option.save_choice
                 and current_show_dialog_mode == 1
             ):
-
                 # ---------------------------------------------
                 # Обычный режим:
                 # только один выбор в рамках диалога.
@@ -309,7 +307,6 @@ class PlayerService:
                 next_dialog_id = dialog.next_dialog_id
 
             if next_dialog_id is not None:
-
                 # ---------------------------------------------
                 # Определяем режим следующего диалога.
                 #
@@ -320,6 +317,7 @@ class PlayerService:
                 # 1 → обычный режим
                 # 2 → extra-режим
                 # ---------------------------------------------
+
                 next_show_dialog_mode = (
                     option.show_dialog_mode
                     if option.show_dialog_mode is not None
@@ -341,6 +339,7 @@ class PlayerService:
                 # Синхронизируем PlayerView.
                 # ORM Player уже изменён через set_dialog_state().
                 # ---------------------------------------------
+
                 player.show_dialog_mode = next_show_dialog_mode
 
                 if next_show_dialog_mode == 1:
@@ -354,6 +353,7 @@ class PlayerService:
             await session.commit()
 
             return next_dialog_id
+
 
 
 

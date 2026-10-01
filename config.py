@@ -20,3 +20,9 @@ DIALOGS_PER_PAGE = config.getint(
     "dialogs_per_page",
     fallback=10,
 )
+
+START_EXTRA_DIALOG_ID = config.getint(
+    "dialog",
+    "start_extra_dialog_id",
+    fallback=1,
+)

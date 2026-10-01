@@ -8,61 +8,69 @@ from instances.game import game
 
 from views.dialog_session import DialogSession
 
-
 dialog_router = Router()
+
+from config import START_EXTRA_DIALOG_ID
 
 async def main(
     message: Message,
     edit: bool = False,
-    player=None,
 ):
     """
     Отображает текущий диалог пользователя.
     """
 
-    if player is None:
-        player = await game.players.get_by_telegram_id(
-            message.chat.id
-        )
+    # --------------------------------------------------
+    # Получаем session.
+    # --------------------------------------------------
+    session = await game.sessions.get_by_telegram_id(
+        message.chat.id
+    )
 
-    if player is None:
-        return
+    player = session.player
 
-    current_dialog_id = None
+    # Если диалог уже находится в session,
+    # продолжаем с него.
+    #
+    # Это позволяет пользователю без Player
+    # переходить между диалогами.
+    if session.dialog is not None:
+        current_dialog_id = session.dialog.id
 
-    if (
-        player.show_dialog_mode == 2
-        and player.current_extra_dialog_id is not None
-    ):
-        current_dialog_id = (
-            player.current_extra_dialog_id
-        )
-
-    elif (
-        player.show_dialog_mode == 1
-        and player.current_dialog_id is not None
-    ):
-        current_dialog_id = (
-            player.current_dialog_id
-        )
+    # Если Player отсутствует, начинаем
+    # со стартового extra-диалога.
+    elif player is None:
+        current_dialog_id = START_EXTRA_DIALOG_ID
 
     else:
-        await message.answer(
-            "Error: no active dialog for player"
-        )
-        return
+        current_dialog_id = None
+
+        if (
+            player.show_dialog_mode == 2
+            and player.current_extra_dialog_id is not None
+        ):
+            current_dialog_id = (
+                player.current_extra_dialog_id
+            )
+
+        elif (
+            player.show_dialog_mode == 1
+            and player.current_dialog_id is not None
+        ):
+            current_dialog_id = (
+                player.current_dialog_id
+            )
+
+        else:
+            await message.answer(
+                "Error: no active dialog for player"
+            )
+
+            return
 
     print(
         "dialog.py current_dialog_id: ",
         current_dialog_id,
-    )
-
-    # --------------------------------------------------
-    # Получаем session.
-    # --------------------------------------------------
-
-    session = game.sessions.get_by_telegram_id(
-        message.chat.id
     )
 
     # --------------------------------------------------
@@ -83,6 +91,7 @@ async def main(
         await message.answer(
             "Error: dialog not found"
         )
+
         return
 
     session.dialog = dialog
@@ -107,6 +116,7 @@ async def main(
         await message.answer(
             "Error: dialog not found"
         )
+
         return
 
     # --------------------------------------------------
@@ -168,6 +178,7 @@ async def main(
                     parse_mode="HTML",
                 )
             )
+
     else:
         session.last_bot_message = (
             await message.answer(
@@ -178,10 +189,10 @@ async def main(
         )
 
 
+
 # --------------------------------------------------
 # Нажатие кнопки диалога.
 # --------------------------------------------------
-
 @dialog_router.callback_query(
     F.data.regexp(
         r"^dialog:option:\d+$"
@@ -196,19 +207,11 @@ async def dialog_option_callback(
         callback.data.split(":")[-1]
     )
 
-    player = (
-        await game.players.get_by_telegram_id(
-            callback.from_user.id
-        )
-    )
-
-    if player is None:
-        return
-
-    session = game.sessions.get_by_telegram_id(
+    session = await game.sessions.get_by_telegram_id(
         callback.message.chat.id
     )
 
+    player = session.player
     dialog = session.dialog
 
     # --------------------------------------------------
@@ -300,19 +303,55 @@ async def dialog_option_callback(
         return
 
     # --------------------------------------------------
-    # Стандартная обработка выбора.
+    # Если игрок не зарегистрирован,
+    # выбор не сохраняется в БД.
+    #
+    # Но переход между диалогами всё равно
+    # происходит внутри session.
     # --------------------------------------------------
 
-    next_dialog_id = (
-        await game.players.choose_dialog_option(
-            player=player,
-            dialog=dialog,
-            option=option_selected,
+    if player is None:
+        next_dialog_id = (
+            option_selected.next_dialog_id
         )
-    )
 
-    if next_dialog_id is None:
-        return
+        if next_dialog_id is None:
+            next_dialog_id = (
+                dialog.next_dialog_id
+            )
+
+        if next_dialog_id is None:
+            return
+
+        next_dialog = await game.dialogs.get_by_id(
+            next_dialog_id
+        )
+
+        if next_dialog is None:
+            return
+
+        session.dialog = next_dialog
+
+    # --------------------------------------------------
+    # Стандартная обработка выбора
+    # зарегистрированного игрока.
+    # --------------------------------------------------
+
+    else:
+        next_dialog_id = (
+            await game.players.choose_dialog_option(
+                player=player,
+                dialog=dialog,
+                option=option_selected,
+            )
+        )
+
+        if next_dialog_id is None:
+            return
+
+        # После сохранения в Player
+        # main() восстановит актуальный диалог.
+        session.dialog = None
 
     # --------------------------------------------------
     # Обновляем сообщение.
@@ -327,19 +366,18 @@ async def dialog_option_callback(
     await main(
         callback.message,
         edit=True,
-        player=player,
     )
+
 
 
 # --------------------------------------------------
 # Обработчик текстового ввода.
 # --------------------------------------------------
-
 @dialog_router.message(F.text)
 async def echo_handler(
     message: Message,
 ):
-    session = game.sessions.get_by_telegram_id(
+    session = await game.sessions.get_by_telegram_id(
         message.chat.id
     )
 
@@ -399,17 +437,30 @@ async def echo_handler(
             dialog is not None
             and dialog.next_dialog_id is not None
         ):
-            player = (
-                await game.players.get_by_telegram_id(
-                    message.chat.id
-                )
-            )
+            player = session.player
 
             if player is not None:
                 await game.players.choice_next_dialog(
                     player,
                     dialog,
                 )
+
+                # Player теперь содержит новый
+                # текущий диалог, поэтому заставляем
+                # main() восстановить его из Player.
+                session.dialog = None
+
+            else:
+                # Для незарегистрированного игрока
+                # переход существует только в session.
+                next_dialog = (
+                    await game.dialogs.get_by_id(
+                        dialog.next_dialog_id
+                    )
+                )
+
+                if next_dialog is not None:
+                    session.dialog = next_dialog
 
         else:
             print(
@@ -424,37 +475,16 @@ async def echo_handler(
 
     dialog = session.dialog
 
-    if dialog is None:
+    if dialog is None and session.player is None:
         return
 
-
     # --------------------------------------------------
-    # Сохраняем старое поведение:
-    # main() заново определяет активный диалог
-    # через player.
+    # main() определяет активный диалог:
+    # для гостя — из session,
+    # для игрока — из Player.
     # --------------------------------------------------
 
-    player = (
-        await game.players.get_by_telegram_id(
-            message.chat.id
-        )
+    await main(
+        message,
+        edit=False,
     )
-
-    if player is not None:
-        # Получаем объект Message через callback
-        # здесь нельзя, поэтому отправляем новое
-        # сообщение так же, как было раньше.
-        #
-        # Если позже захотим редактировать именно
-        # существующее сообщение, это можно вынести
-        # в отдельный Telegram adapter.
-        await main(
-            message,
-            edit=False,
-            player=player,
-        )
-    else:
-        print(
-            "Игрок не найден после "
-            "пользовательского ввода"
-        )
