@@ -420,6 +420,8 @@ class DialogService:
         )
 
         user_input = session.user_input
+        
+        print("user input in input processor: ", user_input)
 
         valid = True
         error_message = None
@@ -496,7 +498,8 @@ class DialogService:
                 viewed_dialog.text.text = user_input
             
             
-
+        print("input in input processor valid: ", valid)
+        
         return (
             valid,
             session,

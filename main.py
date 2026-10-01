@@ -44,6 +44,323 @@ def parse_args():
 
     return parser.parse_args()
     
+async def process_cli_input(
+    session: DialogSession,
+    input_line: str,
+):
+    dialog = session.dialog
+
+    if dialog is None:
+        print("Текущий диалог отсутствует.")
+        return
+
+    # --------------------------------------------------
+    # Если диалог ожидает пользовательский ввод,
+    # любая непустая строка передаётся в processor.
+    #
+    # Важно: здесь строка НЕ разбирается как команда
+    # консоли или как выбор игровой опции.
+    # --------------------------------------------------
+
+    if dialog.input_type == 1:
+        await process_cli_value(
+            session,
+            input_line,
+        )
+
+        return
+
+    # --------------------------------------------------
+    # Если диалог не ожидает пользовательский ввод,
+    # выбор игровой опции осуществляется только через
+    # конструкцию:
+    #
+    #   =1
+    #   =2
+    #   =3
+    #
+    # Обычное число вроде "1" не является выбором.
+    # --------------------------------------------------
+
+    if input_line.startswith("="):
+        value = input_line[1:]
+
+        try:
+            option_number = int(value)
+        except ValueError:
+            print(
+                "Неверный номер варианта. "
+                "Используйте, например: =1"
+            )
+            return
+
+        if not 1 <= option_number <= 99:
+            print(
+                "Номер варианта должен быть "
+                "от 1 до 99."
+            )
+            return
+
+        await choose_cli_option(
+            session,
+            option_number,
+        )
+
+        return
+
+    # --------------------------------------------------
+    # Всё остальное передаём как команду консоли.
+    # --------------------------------------------------
+
+    command, args = parse_command(
+        input_line
+    )
+
+    if command == "help":
+        print()
+        print("Доступные команды:")
+        print("  help   - показать список команд")
+        print("  status - показать состояние игры")
+        print("  cli    - показать игровой диалог")
+        print("  =1-99  - выбрать вариант диалога")
+        print("  Enter  - остановить программу")
+        print()
+
+    elif command == "status":
+        print()
+        print("Сервер запущен.")
+
+        if session.dialog is not None:
+            print(
+                f"Текущий диалог: "
+                f"{session.dialog.id}"
+            )
+
+        print()
+
+    elif command == "cli":
+        await show_cli_dialog(
+            session
+        )
+
+    else:
+        print(
+            f"Неизвестная команда: {command}"
+        )
+
+async def process_cli_value(
+    session: DialogSession,
+    value: str,
+):
+    # --------------------------------------------------
+    # Запоминаем диалог, из которого был выполнен ввод.
+    #
+    # Если ввод окажется некорректным, processor вернёт
+    # valid=False, и мы должны остаться на этом же диалоге.
+    # --------------------------------------------------
+
+    input_dialog = session.dialog
+
+    if input_dialog is None:
+        print(
+            "Текущий диалог отсутствует."
+        )
+        return
+
+    input_dialog_id = input_dialog.id
+
+    # --------------------------------------------------
+    # Сохраняем пользовательский ввод в session.
+    #
+    # ВАЖНО:
+    # on_input_dialog_processor() читает именно
+    # session.user_input, а не processor_data.
+    #
+    # Это тот же контракт, который используется
+    # Telegram handler.
+    # --------------------------------------------------
+
+    session.user_input = value
+
+    # --------------------------------------------------
+    # Processor пользовательского ввода.
+    #
+    # Возвращает:
+    #
+    #   valid
+    #   изменённую session
+    #   error_message
+    # --------------------------------------------------
+
+    (
+        valid,
+        session,
+        error_message,
+    ) = await game.dialogs.on_input_dialog_processor(
+        session
+    )
+
+    # --------------------------------------------------
+    # Если processor вернул сообщение об ошибке,
+    # выводим его в консоль.
+    # --------------------------------------------------
+
+    if error_message is not None:
+        print()
+        print(
+            f"Ошибка: {error_message}"
+        )
+        print()
+
+    # --------------------------------------------------
+    # Если ввод некорректный, возвращаемся
+    # к исходному диалогу.
+    # --------------------------------------------------
+
+    if not valid:
+        dialog = await game.dialogs.get_by_id(
+            input_dialog_id
+        )
+
+        if dialog is None:
+            print(
+                f"Не удалось вернуть диалог "
+                f"{input_dialog_id}."
+            )
+            return
+
+        session.dialog = dialog
+
+    # --------------------------------------------------
+    # Если valid=True, используем session,
+    # которую вернул processor.
+    #
+    # Processor мог изменить:
+    #
+    #   - dialog
+    #   - processor_data
+    #   - user_input
+    #   - и т.д.
+    # --------------------------------------------------
+
+    await show_cli_dialog(
+        session
+    )
+
+
+
+async def choose_cli_option(
+    session: DialogSession,
+    option_number: int,
+):
+    dialog = session.dialog
+
+    if dialog is None:
+        print(
+            "Текущий диалог отсутствует."
+        )
+        return
+
+    # --------------------------------------------------
+    # CLI использует человеческую нумерацию:
+    #
+    #   =1 -> options[0]
+    #   =2 -> options[1]
+    #   =3 -> options[2]
+    # --------------------------------------------------
+
+    index = option_number - 1
+
+    if (
+        index < 0
+        or index >= len(dialog.options)
+    ):
+        print(
+            f"Нет варианта с номером "
+            f"{option_number}."
+        )
+        return
+
+    option_selected = dialog.options[index]
+
+    print(
+        f"Выбран вариант: "
+        f"{option_number} "
+        f"({option_selected.text.text})"
+    )
+
+    # --------------------------------------------------
+    # Передаём выбранную кнопку в session.
+    # --------------------------------------------------
+
+    session.processor_data[
+        "selected_option"
+    ] = option_selected
+
+    # --------------------------------------------------
+    # Processor закрытия.
+    # --------------------------------------------------
+
+    session = await game.dialogs.on_close_dialog_processor(
+        session
+    )
+
+    option_selected = session.processor_data.get(
+        "selected_option"
+    )
+
+    if option_selected is None:
+        print(
+            "selected_option отсутствует "
+            "после on_close_dialog_processor."
+        )
+        return
+
+    # --------------------------------------------------
+    # CLI пока работает без зарегистрированного
+    # игрока, поэтому сохранение выбора в БД
+    # не выполняем.
+    # --------------------------------------------------
+
+    next_dialog_id = (
+        option_selected.next_dialog_id
+    )
+
+    if next_dialog_id is None:
+        next_dialog_id = (
+            dialog.next_dialog_id
+        )
+
+    if next_dialog_id is None:
+        print(
+            "Следующий диалог не указан."
+        )
+        return
+
+    next_dialog = await game.dialogs.get_by_id(
+        next_dialog_id
+    )
+
+    if next_dialog is None:
+        print(
+            f"Диалог {next_dialog_id} "
+            f"не найден."
+        )
+        return
+
+    # --------------------------------------------------
+    # Устанавливаем следующий диалог.
+    # --------------------------------------------------
+
+    session.dialog = next_dialog
+
+    # --------------------------------------------------
+    # Показываем новый диалог.
+    # --------------------------------------------------
+
+    await show_cli_dialog(
+        session
+    )
     
 
 async def show_cli_dialog(
@@ -62,7 +379,7 @@ async def show_cli_dialog(
         if dialog is None:
             print(
                 f"Стартовый диалог "
-                f"{CLI_START_EXTRA_DIALOG_ID} не найден"
+                f"{CLI_START_EXTRA_DIALOG_ID} не найден."
             )
             return False
 
@@ -70,9 +387,6 @@ async def show_cli_dialog(
 
     # --------------------------------------------------
     # Processor открытия.
-    #
-    # Здесь выполняется абсолютно та же логика,
-    # что и при открытии диалога в Telegram.
     # --------------------------------------------------
 
     session = await game.dialogs.on_open_dialog_processor(
@@ -82,7 +396,9 @@ async def show_cli_dialog(
     dialog = session.dialog
 
     if dialog is None:
-        print("Текущий диалог отсутствует")
+        print(
+            "Текущий диалог отсутствует."
+        )
         return False
 
     # --------------------------------------------------
@@ -110,8 +426,21 @@ async def show_cli_dialog(
 
     print()
 
-    if not dialog.options:
-        print("[Нет доступных вариантов]")
+    # --------------------------------------------------
+    # input_type == 1 означает, что диалог ожидает
+    # пользовательский ввод.
+    # --------------------------------------------------
+
+    if dialog.input_type == 1:
+        print(
+            "[Ожидается ввод]"
+        )
+
+    elif not dialog.options:
+        print(
+            "[Нет доступных вариантов]"
+        )
+
     else:
         for index, option in enumerate(
             dialog.options,
@@ -121,123 +450,12 @@ async def show_cli_dialog(
                 break
 
             print(
-                f"{index}. {option.text.text}"
+                f"={index}. {option.text.text}"
             )
 
     print("=" * 60)
 
     return True
-
-
-async def choose_cli_option(
-    session: DialogSession,
-    option_index: int,
-):
-    dialog = session.dialog
-
-    if dialog is None:
-        print("Текущий диалог отсутствует")
-        return
-
-    # --------------------------------------------------
-    # CLI использует человеческую нумерацию:
-    #
-    # 1 -> options[0]
-    # 2 -> options[1]
-    # ...
-    # --------------------------------------------------
-
-    index = option_index - 1
-
-    if (
-        index < 0
-        or index >= len(dialog.options)
-    ):
-        print(
-            f"Нет варианта с номером "
-            f"{option_index}"
-        )
-        return
-
-    option_selected = dialog.options[index]
-
-    # --------------------------------------------------
-    # Передаём выбранную кнопку в session.
-    # --------------------------------------------------
-
-    session.processor_data[
-        "selected_option"
-    ] = option_selected
-
-    # --------------------------------------------------
-    # Processor закрытия.
-    # --------------------------------------------------
-
-    session = await game.dialogs.on_close_dialog_processor(
-        session
-    )
-
-    option_selected = session.processor_data.get(
-        "selected_option"
-    )
-
-    if option_selected is None:
-        print(
-            "selected_option отсутствует "
-            "после on_close_dialog_processor"
-        )
-        return
-
-    # --------------------------------------------------
-    # CLI пока работает как незарегистрированный
-    # пользователь.
-    #
-    # Поэтому выбор в Player/БД не сохраняем.
-    # --------------------------------------------------
-
-    next_dialog_id = (
-        option_selected.next_dialog_id
-    )
-
-    if next_dialog_id is None:
-        next_dialog_id = (
-            dialog.next_dialog_id
-        )
-
-    if next_dialog_id is None:
-        print(
-            "У выбранного варианта "
-            "не указан следующий диалог"
-        )
-        return
-
-    next_dialog = await game.dialogs.get_by_id(
-        next_dialog_id
-    )
-
-    if next_dialog is None:
-        print(
-            f"Диалог {next_dialog_id} не найден"
-        )
-        return
-
-    # --------------------------------------------------
-    # Устанавливаем следующий диалог
-    # непосредственно в CLI-сессию.
-    # --------------------------------------------------
-
-    session.dialog = next_dialog
-
-    # --------------------------------------------------
-    # Сразу показываем его.
-    # --------------------------------------------------
-
-    await show_cli_dialog(session)
-
-
-
-
-
 
 
 
@@ -329,7 +547,10 @@ async def console(cli: bool = False):
         # показываем текущий диалог.
         # --------------------------------------------------
 
-        await show_cli_dialog(session)
+        if not await show_cli_dialog(session):
+            print(
+                "CLI-режим не может быть запущен (show_cli_dialog не вернула true)"
+            )
 
     while True:
         try:
@@ -347,77 +568,71 @@ async def console(cli: bool = False):
         # --------------------------------------------------
 
         if not input_line.strip():
-            print("Остановка программы...")
+            print(
+                "Остановка программы..."
+            )
             break
+
+        # --------------------------------------------------
+        # Если игровой CLI ещё не включён, команда cli
+        # запускает его прямо во время работы программы.
+        # --------------------------------------------------
+
+        if (
+            not cli
+            and input_line.strip() == "cli"
+        ):
+            cli = True
+            session = DialogSession()
+
+            await show_cli_dialog(
+                session
+            )
+
+            continue
+
+        # --------------------------------------------------
+        # Если CLI активен, передаём ввод игровому
+        # маршрутизатору.
+        #
+        # Он сам определит:
+        #
+        #   =1     -> выбор опции
+        #   любой
+        #   текст  -> пользовательский ввод,
+        #              если input_type == 1
+        #   help   -> команда консоли
+        #   status -> команда консоли
+        #   cli    -> обновление диалога
+        # --------------------------------------------------
+
+        if cli:
+            await process_cli_input(
+                session,
+                input_line,
+            )
+
+            continue
+
+        # --------------------------------------------------
+        # Обычная серверная консоль.
+        # --------------------------------------------------
 
         command, args = parse_command(
             input_line
         )
 
-        # --------------------------------------------------
-        # Число в режиме --cli означает выбор
-        # соответствующей опции текущего диалога.
-        #
-        # Например:
-        #
-        #   1
-        #   2
-        #   3
-        #
-        # В обычном режиме без --cli числа пока
-        # не имеют специального значения.
-        # --------------------------------------------------
-
-        if cli and isinstance(command, int):
-            if 1 <= command <= 99:
-                await choose_cli_option(
-                    session,
-                    command
-                )
-            else:
-                print(
-                    "Номер варианта должен быть "
-                    "от 1 до 99."
-                )
-
-            continue
-
-        # --------------------------------------------------
-        # Команда cli включает игровой интерфейс.
-        #
-        # Если он ещё не был включён, создаём игровую
-        # сессию и показываем стартовый диалог.
-        #
-        # Если cli уже активен, просто обновляем
-        # текущий диалог.
-        # --------------------------------------------------
-
-        if command == "cli":
-            if not cli:
-                cli = True
-                session = DialogSession()
-
-                await show_cli_dialog(
-                    session
-                )
-            else:
-                await show_cli_dialog(
-                    session
-                )
-
-            continue
-
-        # --------------------------------------------------
-        # Системные команды консоли.
-        # --------------------------------------------------
-
         if command == "help":
             print()
             print("Доступные команды:")
-            print("  help   - показать список команд")
-            print("  status - показать состояние игры")
             print(
-                "  cli    - показать игровой диалог"
+                "  help   - показать список команд"
+            )
+            print(
+                "  status - показать состояние игры"
+            )
+            print(
+                "  cli    - включить игровой CLI"
             )
             print(
                 "  Enter  - остановить программу"
@@ -427,24 +642,13 @@ async def console(cli: bool = False):
         elif command == "status":
             print()
             print("Сервер запущен.")
-
-            if cli and session is not None:
-                if session.dialog is not None:
-                    print(
-                        f"Текущий диалог: "
-                        f"{session.dialog.id}"
-                    )
-                else:
-                    print(
-                        "Текущий диалог: отсутствует"
-                    )
-
             print()
 
         else:
             print(
                 f"Неизвестная команда: {command}"
             )
+
 
 
 
@@ -458,10 +662,14 @@ async def main():
 
     # --------------------------------------------------
     # Запускаем игровую систему.
+    #
+    # Игровой движок работает в фоне и не определяет
+    # жизненный цикл приложения.
     # --------------------------------------------------
 
     game_task = asyncio.create_task(
-        game.run()
+        game.run(),
+        name="game"
     )
 
     # --------------------------------------------------
@@ -493,11 +701,19 @@ async def main():
     console_task = asyncio.create_task(
         console(
             cli=args.cli
-        )
+        ),
+        name="console"
     )
 
+    # --------------------------------------------------
+    # В tasks находятся интерфейсы приложения.
+    #
+    # game_task намеренно здесь отсутствует:
+    # игровой движок работает в фоне и не должен
+    # самостоятельно завершать приложение.
+    # --------------------------------------------------
+
     tasks = [
-        game_task,
         console_task,
     ]
 
@@ -518,21 +734,23 @@ async def main():
 
     if args.telegram:
         telegram_task = asyncio.create_task(
-            dp.start_polling(bot)
+            dp.start_polling(bot),
+            name="telegram"
         )
 
         tasks.append(telegram_task)
 
     try:
         # --------------------------------------------------
-        # Ждём завершения любой из основных задач.
+        # Ждём завершения любого интерфейса.
         #
         # Например:
         #   - пользователь нажал Enter в консоли;
-        #   - остановилась игра;
-        #   - Telegram polling завершился.
+        #   - Telegram polling завершился;
+        #   - в будущем завершился web-интерфейс.
         #
-        # Остальные задачи пока продолжают работать.
+        # Игровой движок здесь не участвует:
+        # он работает в фоне всё время жизни приложения.
         # --------------------------------------------------
 
         done, pending = await asyncio.wait(
@@ -540,9 +758,45 @@ async def main():
             return_when=asyncio.FIRST_COMPLETED
         )
 
+        # --------------------------------------------------
+        # Временно выводим информацию о завершившейся
+        # задаче.
+        #
+        # Это поможет понять, почему приложение
+        # завершилось само.
+        # --------------------------------------------------
+
+        for task in done:
+            print(
+                "Завершилась задача:",
+                task.get_name()
+            )
+
+            if task.cancelled():
+                print(
+                    "Задача была отменена."
+                )
+
+            elif task.exception() is not None:
+                print(
+                    "Задача завершилась с ошибкой:"
+                )
+                print(
+                    repr(task.exception())
+                )
+
+                # --------------------------------------------------
+                # Не скрываем исключение.
+                #
+                # Пока отлаживаем запуск CLI, лучше сразу увидеть
+                # реальную ошибку.
+                # --------------------------------------------------
+
+                raise task.exception()
+
     finally:
         # --------------------------------------------------
-        # Останавливаем все оставшиеся задачи.
+        # Останавливаем интерфейсы.
         # --------------------------------------------------
 
         for task in tasks:
@@ -550,7 +804,10 @@ async def main():
                 task.cancel()
 
         # --------------------------------------------------
-        # Дожидаемся завершения отменённых задач.
+        # Дожидаемся завершения интерфейсов.
+        #
+        # Исключения здесь уже не скрываем для завершившихся
+        # задач, потому что выше мы их проверили.
         # --------------------------------------------------
 
         await asyncio.gather(
@@ -563,6 +820,15 @@ async def main():
         # --------------------------------------------------
 
         await game.stop()
+
+        # --------------------------------------------------
+        # Дожидаемся завершения игрового движка.
+        # --------------------------------------------------
+
+        await asyncio.gather(
+            game_task,
+            return_exceptions=True
+        )
 
 
 if __name__ == "__main__":
