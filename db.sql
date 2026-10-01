@@ -137,7 +137,7 @@ INSERT INTO "dialog_options" VALUES (62,6,NULL,1,5026,NULL,1,NULL);
 INSERT INTO "dialog_options" VALUES (63,6,NULL,2,5027,11,1,NULL);
 INSERT INTO "dialog_options" VALUES (64,6,NULL,3,5028,NULL,1,NULL);
 INSERT INTO "dialog_options" VALUES (65,6,NULL,4,5029,NULL,1,NULL);
-INSERT INTO "dialog_options" VALUES (66,6,NULL,5,5030,7,1,NULL);
+INSERT INTO "dialog_options" VALUES (66,6,NULL,6,5030,7,1,NULL);
 INSERT INTO "dialog_options" VALUES (67,7,NULL,1,5032,8,1,NULL);
 INSERT INTO "dialog_options" VALUES (68,7,NULL,2,5033,9,1,NULL);
 INSERT INTO "dialog_options" VALUES (69,7,NULL,3,5034,10,1,NULL);
@@ -145,6 +145,9 @@ INSERT INTO "dialog_options" VALUES (70,7,NULL,4,5035,NULL,1,NULL);
 INSERT INTO "dialog_options" VALUES (71,7,NULL,5,5036,NULL,1,NULL);
 INSERT INTO "dialog_options" VALUES (72,8,NULL,1,5038,7,1,NULL);
 INSERT INTO "dialog_options" VALUES (73,11,NULL,1,5047,NULL,0,NULL);
+INSERT INTO "dialog_options" VALUES (74,6,NULL,5,5049,13,0,NULL);
+INSERT INTO "dialog_options" VALUES (75,13,NULL,1,5050,13,0,NULL);
+INSERT INTO "dialog_options" VALUES (76,13,NULL,2,5051,6,0,NULL);
 INSERT INTO "dialogs" VALUES (1,5006,NULL,NULL,1,0,0,0,'Сюжетный 1');
 INSERT INTO "dialogs" VALUES (2,5008,NULL,4,1,1,0,0,'Сюжетный 2');
 INSERT INTO "dialogs" VALUES (3,5015,NULL,2,0,0,0,0,'Сюжетный, подсказка кем был и прибавки');
@@ -156,20 +159,19 @@ INSERT INTO "dialogs" VALUES (8,5037,NULL,6,0,0,1,1,'Ввод текста но�
 INSERT INTO "dialogs" VALUES (9,5039,NULL,6,0,0,1,1,'Ввод id диалога для просмотра');
 INSERT INTO "dialogs" VALUES (10,5040,NULL,NULL,1,0,1,0,'Список диалогов');
 INSERT INTO "dialogs" VALUES (11,5041,NULL,6,1,0,1,1,'Редактирование текста диалога');
-INSERT INTO "dialogs" VALUES (12,5042,NULL,NULL,1,0,1,0,NULL);
-INSERT INTO "dialogs" VALUES (13,5043,NULL,NULL,1,0,1,0,NULL);
+INSERT INTO "dialogs" VALUES (12,5042,NULL,NULL,1,0,1,0,'Стартовое меню игры');
+INSERT INTO "dialogs" VALUES (13,5043,NULL,NULL,1,0,1,0,'Подтверждение удаления диалога');
 INSERT INTO "dialogs" VALUES (14,5044,NULL,NULL,1,0,1,0,NULL);
 INSERT INTO "dialogs" VALUES (15,5045,NULL,NULL,1,0,0,0,NULL);
-INSERT INTO "dialogs" VALUES (16,5046,NULL,NULL,1,0,0,0,NULL);
 INSERT INTO "dialogs" VALUES (17,5048,NULL,NULL,1,0,0,0,NULL);
+INSERT INTO "dialogs" VALUES (18,5052,NULL,NULL,1,0,0,0,NULL);
+INSERT INTO "dialogs" VALUES (19,5053,NULL,NULL,1,0,0,0,NULL);
+INSERT INTO "dialogs" VALUES (20,5054,NULL,NULL,1,0,0,0,NULL);
+INSERT INTO "dialogs" VALUES (21,5055,NULL,NULL,1,0,0,0,NULL);
+INSERT INTO "dialogs" VALUES (22,5056,NULL,NULL,1,0,0,0,NULL);
+INSERT INTO "dialogs" VALUES (23,5057,NULL,NULL,1,0,0,0,NULL);
 INSERT INTO "locales" VALUES (1,'ru');
-INSERT INTO "player_dialog_choices" VALUES (50,9,2,50);
-INSERT INTO "player_dialog_choices" VALUES (53,9,2,52);
-INSERT INTO "player_dialog_choices" VALUES (54,9,4,56);
-INSERT INTO "player_dialog_choices" VALUES (56,9,1,49);
 INSERT INTO "player_flag_types" VALUES (1,5020,1);
-INSERT INTO "player_flags" VALUES (9,1,'1');
-INSERT INTO "players" VALUES (9,6136061550,1,'2026-09-25 09:01:27.257004',NULL,1,6,2);
 INSERT INTO "texts" VALUES (5000,1,'Привет тебе в игре 🔸️ <b>Fantasy Market</b> 🔸️! 
 Создай свой магазин в мире фэнтези и управляй им!
 
@@ -308,15 +310,23 @@ INSERT INTO "texts" VALUES (5036,1,'В админ панель');
 INSERT INTO "texts" VALUES (5037,1,'Введите текст нового диалога:');
 INSERT INTO "texts" VALUES (5038,1,'Назад');
 INSERT INTO "texts" VALUES (5039,1,'Введите id диалога для просмотра:');
-INSERT INTO "texts" VALUES (5040,1,'111');
+INSERT INTO "texts" VALUES (5040,1,'Список диалогов:');
 INSERT INTO "texts" VALUES (5041,1,'Введите текст диалога:');
-INSERT INTO "texts" VALUES (5042,1,'1');
-INSERT INTO "texts" VALUES (5043,1,'123');
+INSERT INTO "texts" VALUES (5042,1,'(текст, Стартовое меню игры)');
+INSERT INTO "texts" VALUES (5043,1,'Вы действительно хотите удалить этот диалог?');
 INSERT INTO "texts" VALUES (5044,1,'12345');
 INSERT INTO "texts" VALUES (5045,1,'123');
-INSERT INTO "texts" VALUES (5046,1,'12345');
 INSERT INTO "texts" VALUES (5047,1,'Отмена');
 INSERT INTO "texts" VALUES (5048,1,'fdgdfg');
+INSERT INTO "texts" VALUES (5049,1,'Удалить диалог');
+INSERT INTO "texts" VALUES (5050,1,'Удалить');
+INSERT INTO "texts" VALUES (5051,1,'Отмена');
+INSERT INTO "texts" VALUES (5052,1,'Тестовый диалог из консоли');
+INSERT INTO "texts" VALUES (5053,1,'=1');
+INSERT INTO "texts" VALUES (5054,1,'ввв');
+INSERT INTO "texts" VALUES (5055,1,'ыыы');
+INSERT INTO "texts" VALUES (5056,1,'fff');
+INSERT INTO "texts" VALUES (5057,1,'gggg');
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_player_dialog_choice_unique" ON "player_dialog_choices" (
 	"player_id",
 	"dialog_id",
