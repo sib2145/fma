@@ -372,6 +372,13 @@ class DialogService:
                             session.processor_data[
                                 "delete_dialog_id"
                             ] = viewing_dialog.id
+                            
+                    # Кнопка "Добавить кнопку"
+                    elif selected_option.id == 65:
+                        session.processor_data["add_option_dialog_id"] = (
+                            viewing_dialog.id
+                        )
+
                         
 
         if (
@@ -500,6 +507,62 @@ class DialogService:
                 viewed_dialog.text.text = user_input
             
             
+        # --------------------------------------------------
+        # Ввод текста новой кнопки
+        # --------------------------------------------------
+
+        elif dialog.id == 14:
+            add_option_dialog_id = session.processor_data.get(
+                "add_option_dialog_id"
+            )
+
+            if add_option_dialog_id is None:
+                error_message = (
+                    "Не передан add_option_dialog_id"
+                )
+                valid = False
+
+            elif user_input is None or user_input == "":
+                valid = False
+                error_message = (
+                    "Текст кнопки не может быть пустым."
+                )
+
+            else:
+                option_id = await self.add_option(
+                    dialog_id=add_option_dialog_id,
+                    text=user_input,
+                )
+
+                if option_id is None:
+                    valid = False
+                    error_message = (
+                        "Не удалось создать кнопку."
+                    )
+                else:
+                    viewed_dialog = await self.get_by_id(
+                        add_option_dialog_id
+                    )
+
+                    if viewed_dialog is None:
+                        valid = False
+                        error_message = (
+                            "Диалог не найден."
+                        )
+                    else:
+                        session.processor_data[
+                            "viewing_dialog"
+                        ] = viewed_dialog
+
+                        session.processor_data.pop(
+                            "add_option_dialog_id",
+                            None
+                        )
+
+        
+        
+        
+        #####
         print("input in input processor valid: ", valid)
         
         return (
