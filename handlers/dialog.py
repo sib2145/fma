@@ -11,30 +11,6 @@ from views.dialog_session import DialogSession
 
 dialog_router = Router()
 
-
-# --------------------------------------------------
-# Сессионное состояние пользователей.
-#
-# Ключ — Telegram chat_id.
-# --------------------------------------------------
-
-user_sessions: dict[int, DialogSession] = {}
-
-
-def get_user_session(
-    chat_id: int,
-) -> DialogSession:
-    """
-    Получает существующую сессию пользователя
-    или создаёт новую.
-    """
-
-    if chat_id not in user_sessions:
-        user_sessions[chat_id] = DialogSession()
-
-    return user_sessions[chat_id]
-
-
 async def main(
     message: Message,
     edit: bool = False,
@@ -85,7 +61,7 @@ async def main(
     # Получаем session.
     # --------------------------------------------------
 
-    session = get_user_session(
+    session = game.sessions.get_by_telegram_id(
         message.chat.id
     )
 
@@ -229,7 +205,7 @@ async def dialog_option_callback(
     if player is None:
         return
 
-    session = get_user_session(
+    session = game.sessions.get_by_telegram_id(
         callback.message.chat.id
     )
 
@@ -363,7 +339,7 @@ async def dialog_option_callback(
 async def echo_handler(
     message: Message,
 ):
-    session = get_user_session(
+    session = game.sessions.get_by_telegram_id(
         message.chat.id
     )
 

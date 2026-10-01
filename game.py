@@ -5,6 +5,7 @@ from instances.db import db
 from services.player import PlayerService
 from services.text import TextService
 from services.dialog import DialogService
+from services.session import SessionService
 
 from config import SHOW_EXTRA, DIALOGS_PER_PAGE
 
@@ -14,6 +15,10 @@ class Game:
 
         self.players = PlayerService(db)
         self.texts = TextService(db)
+        self.sessions = SessionService(
+            db,
+            self.players,
+        )
 
         self.dialogs = DialogService(
             db,
