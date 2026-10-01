@@ -22,8 +22,17 @@ import argparse
 from config import config, CLI_START_EXTRA_DIALOG_ID
 from views.dialog_session import DialogSession
 
-
 cli_session = DialogSession()
+
+cli_note_text = dedent("""
+CLI  мод позволяет использовать единые диалоги на движке игры для игры или админки из консоли.
+
+Пункты диалогов выбираются вводом номера опции. Например, ввод =1 в консоль там, где предполагается выбор опций, выберет первую опцию. Все опции подписаны.
+При этом консольные команды сервера вроде help все еще работают
+
+В тех диалогах, где предполагается пользовательский ввод, можно вводить в консоли просто обычный текст, который должен быть введен. 
+Этот ввод имеет приоритет над консольными командами сервера.
+""")
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -153,31 +162,30 @@ async def process_cli_value(
     value: str,
 ):
     # --------------------------------------------------
-    # Запоминаем диалог, из которого был выполнен ввод.
+    # Запоминаем текущий диалог.
     #
-    # Если ввод окажется некорректным, processor вернёт
-    # valid=False, и мы должны остаться на этом же диалоге.
+    # Если ввод окажется некорректным, остаёмся
+    # на этом же диалоге.
+    #
+    # Если ввод корректный, после processor'а
+    # переходим на его next_dialog_id.
     # --------------------------------------------------
 
-    input_dialog = session.dialog
+    dialog = session.dialog
 
-    if input_dialog is None:
+    if dialog is None:
         print(
             "Текущий диалог отсутствует."
         )
         return
 
-    input_dialog_id = input_dialog.id
+    current_dialog_id = dialog.id
 
     # --------------------------------------------------
     # Сохраняем пользовательский ввод в session.
     #
-    # ВАЖНО:
-    # on_input_dialog_processor() читает именно
-    # session.user_input, а не processor_data.
-    #
-    # Это тот же контракт, который используется
-    # Telegram handler.
+    # on_input_dialog_processor() использует
+    # именно session.user_input.
     # --------------------------------------------------
 
     session.user_input = value
@@ -201,8 +209,8 @@ async def process_cli_value(
     )
 
     # --------------------------------------------------
-    # Если processor вернул сообщение об ошибке,
-    # выводим его в консоль.
+    # Выводим сообщение об ошибке, если processor
+    # его сформировал.
     # --------------------------------------------------
 
     if error_message is not None:
@@ -213,34 +221,99 @@ async def process_cli_value(
         print()
 
     # --------------------------------------------------
-    # Если ввод некорректный, возвращаемся
-    # к исходному диалогу.
+    # Некорректный ввод.
+    #
+    # Остаёмся на том же диалоге и просто показываем
+    # его снова.
     # --------------------------------------------------
 
     if not valid:
         dialog = await game.dialogs.get_by_id(
-            input_dialog_id
+            current_dialog_id
         )
 
         if dialog is None:
             print(
                 f"Не удалось вернуть диалог "
-                f"{input_dialog_id}."
+                f"{current_dialog_id}."
             )
             return
 
         session.dialog = dialog
 
+        await show_cli_dialog(
+            session
+        )
+
+        return
+
     # --------------------------------------------------
-    # Если valid=True, используем session,
-    # которую вернул processor.
+    # Корректный ввод.
     #
-    # Processor мог изменить:
+    # on_input_dialog_processor() мог изменить
+    # processor_data, например:
     #
-    #   - dialog
-    #   - processor_data
-    #   - user_input
-    #   - и т.д.
+    #   viewing_dialog = DialogView(id=1, ...)
+    #
+    # Но session.dialog при этом остаётся текущим
+    # диалогом ввода (например, диалогом 9).
+    #
+    # Как и в Telegram, теперь переходим на
+    # next_dialog_id текущего диалога.
+    # --------------------------------------------------
+
+    dialog = session.dialog
+
+    if (
+        dialog is None
+        or dialog.next_dialog_id is None
+    ):
+        print(
+            "После пользовательского ввода "
+            "следующий диалог не установлен."
+        )
+
+        await show_cli_dialog(
+            session
+        )
+
+        return
+
+    # --------------------------------------------------
+    # Загружаем следующий диалог.
+    #
+    # Для нашего примера:
+    #
+    #   9 -> 6
+    #
+    # При этом processor_data сохраняется,
+    # поэтому диалог 6 получит:
+    #
+    #   viewing_dialog = диалог 1
+    #
+    # и его on_open processor сможет показать
+    # данные просмотренного диалога.
+    # --------------------------------------------------
+
+    next_dialog = await game.dialogs.get_by_id(
+        dialog.next_dialog_id
+    )
+
+    if next_dialog is None:
+        print(
+            f"Следующий диалог "
+            f"{dialog.next_dialog_id} не найден."
+        )
+        return
+
+    session.dialog = next_dialog
+
+    # --------------------------------------------------
+    # Показываем новый текущий диалог.
+    #
+    # show_cli_dialog() вызовет on_open processor,
+    # поэтому для диалога 6 будет обработан
+    # processor_data["viewing_dialog"].
     # --------------------------------------------------
 
     await show_cli_dialog(
@@ -541,6 +614,8 @@ async def console(cli: bool = False):
 
     if cli:
         session = DialogSession()
+        
+        print(cli_note_text)
 
         # --------------------------------------------------
         # Если игровой CLI включён при запуске, сразу
@@ -584,6 +659,8 @@ async def console(cli: bool = False):
         ):
             cli = True
             session = DialogSession()
+
+            print(cli_note_text)
 
             await show_cli_dialog(
                 session
