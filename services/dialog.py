@@ -364,10 +364,91 @@ class DialogService:
                 "viewing_option"
             )
 
-            if viewing_option is not None:
-                dialog.template_context.update({
-                    "option": viewing_option,
-                })
+            viewing_dialog = session.processor_data.get(
+                "viewing_dialog"
+            )
+
+            if (
+                viewing_option is None
+                or viewing_dialog is None
+            ):
+                return session
+
+            # --------------------------------------------------
+            # Представление кнопки передаём в контекст
+            # диалога №15.
+            # --------------------------------------------------
+
+            dialog.template_context.update({
+                "option": viewing_option,
+            })
+
+            # --------------------------------------------------
+            # Определяем положение кнопки среди кнопок
+            # просматриваемого диалога.
+            # --------------------------------------------------
+
+            options = viewing_dialog.options
+
+            current_index = next(
+                (
+                    index
+                    for index, option in enumerate(options)
+                    if option.id == viewing_option.id
+                ),
+                None,
+            )
+
+            if current_index is None:
+                return session
+
+            is_first = current_index == 0
+            is_last = current_index == len(options) - 1
+
+            # --------------------------------------------------
+            # Определяем наличие связанного диалога.
+            # --------------------------------------------------
+
+            has_next_dialog = (
+                viewing_option.next_dialog_id is not None
+            )
+
+            # --------------------------------------------------
+            # Формируем список доступных кнопок.
+            # --------------------------------------------------
+
+            dialog.options = [
+                option
+                for option in dialog.options
+                if (
+                    # Переместить вверх
+                    option.id != 84
+                    or not is_first
+                )
+                and (
+                    # Переместить вниз
+                    option.id != 85
+                    or not is_last
+                )
+                and (
+                    # Связанный диалог
+                    option.id != 86
+                    or has_next_dialog
+                )
+                and (
+                    # Отвязать диалог
+                    option.id != 87
+                    or has_next_dialog
+                )
+                and (
+                    # Назначить диалог
+                    option.id != 88
+                    or not has_next_dialog
+                )
+            ]
+            
+            
+            
         
         # Редактирование названия кнопки диалога
         elif dialog.id == 17:
@@ -486,7 +567,7 @@ class DialogService:
                         )
 
                         
-
+        # Подтверждения удаления диалога при нажатии соотв. кнопки
         if (
             dialog.id == 13
             and selected_option is not None
@@ -495,6 +576,86 @@ class DialogService:
             session.processor_data[
                 "confirmed"
             ] = 1
+
+        # Диалог просмотра кнопки диалога
+        elif dialog.id == 15:
+            viewing_option = session.processor_data.get(
+                "viewing_option"
+            )
+           
+
+            if (
+                viewing_option is None
+                or selected_option is None
+            ):
+                return session
+
+            # --------------------------------------------------
+            # Переместить вверх.
+            # --------------------------------------------------
+
+            if selected_option.id == 84:
+                dialog_id = await self.move_option(
+                    option_id=viewing_option.id,
+                    direction=-1,
+                )
+
+            # --------------------------------------------------
+            # Переместить вниз.
+            # --------------------------------------------------
+
+            elif selected_option.id == 85:
+                dialog_id = await self.move_option(
+                    option_id=viewing_option.id,
+                    direction=1,
+                )
+
+            else:
+                return session
+
+            if dialog_id is None:
+                return session
+
+            # --------------------------------------------------
+            # После перемещения заново загружаем диалог.
+            # --------------------------------------------------
+
+            viewing_dialog = await self.get_by_id(
+                dialog_id
+            )
+
+            if viewing_dialog is None:
+                return session
+
+            session.processor_data[
+                "viewing_dialog"
+            ] = viewing_dialog
+
+            # --------------------------------------------------
+            # Находим кнопку уже в новом порядке.
+            # --------------------------------------------------
+
+            updated_option = next(
+                (
+                    option
+                    for option in viewing_dialog.options
+                    if option.id == viewing_option.id
+                ),
+                None,
+            )
+
+            if updated_option is None:
+                return session
+
+            session.processor_data[
+                "viewing_option"
+            ] = updated_option
+
+            # --------------------------------------------------
+            # Остаёмся на странице просмотра кнопки.
+            # --------------------------------------------------
+
+            session.dialog = await self.get_by_id(15)
 
 
         elif dialog.id == 18:
