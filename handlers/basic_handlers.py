@@ -22,12 +22,24 @@ ALLOWED_USERS = {
 router = Router()
 
 async def enter_adm(message: Message, edit = False):
-    player = await game.players.get_by_telegram_id(message.chat.id)
+    session = await game.sessions.get_by_telegram_id(
+        message.chat.id
+    )
+    
+    player = session.player
+    
     if player:
         # Если игрок зарегистрирован, переключаем в режим служебного диалога и ставим диалог админа
         await game.players.set_show_dialog_mode(player.id, 2)
         await game.players.set_current_dialog(player.id, 5, True)
-        await dialog_show(message, edit)
+    else:
+        next_dialog = await game.dialogs.get_by_id(5)
+
+        if next_dialog is None:
+            return
+        session.dialog = next_dialog
+        
+    await dialog_show(message, edit)
         
 @router.callback_query(F.data=="adm:main")
 async def enter_adm_callback(callback: CallbackQuery):
@@ -44,6 +56,8 @@ async def enter_game(message: Message, edit = False):
         # Если игрок зарегистрирован и у него есть текущий сюжетный диалог, переключаем в режим сюжетного диалога и обновляем
         await game.players.set_show_dialog_mode(player.id, 1)
         await dialog_show(message, edit)
+    else:
+        print("Игрок не зарегистрирован и не может войти в игру")
         
 @router.callback_query(F.data=="game:main")
 async def enter_game_callback(callback: CallbackQuery):
@@ -54,10 +68,9 @@ async def enter_game_callback(callback: CallbackQuery):
 async def enter_game_command(message: Message):
     await enter_game(message)
 
-# Продолжить (обновить) игру
+# Продолжить (обновить) игру/текущий диалог
 async def resume_game(message: Message, edit = False):
     await dialog_show(message, edit)
-        
 
 @router.callback_query(F.data=="welcome:enter_world")
 async def resume_game_callback(callback: CallbackQuery):
