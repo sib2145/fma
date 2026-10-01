@@ -345,36 +345,38 @@ class DialogService:
             )
 
             if viewing_dialog is not None:
-                # Кнопка "Установить себе и перейти"
-                if selected_option.id == 62:
-                    selected_option.next_dialog_id = (
-                        viewing_dialog.id
-                    )
+                if selected_option is not None:
+                    # Кнопка "Установить себе и перейти"
+                    if selected_option.id == 62:
+                        selected_option.next_dialog_id = (
+                            viewing_dialog.id
+                        )
 
-                    selected_option.show_dialog_mode = (
-                        2
-                        if viewing_dialog.is_extra
-                        else 1
-                    )
-                
-                # Кнопка "редактировать текст"
-                elif selected_option.id == 63:
-                    session.processor_data["edit_dialog_id"] = viewing_dialog.id
+                        selected_option.show_dialog_mode = (
+                            2
+                            if viewing_dialog.is_extra
+                            else 1
+                        )
                     
-                # Кнопка удаления диалога
-                elif selected_option.id == 74:
-                    viewing_dialog = session.processor_data.get(
-                        "viewing_dialog"
-                    )
+                    # Кнопка "редактировать текст"
+                    elif selected_option.id == 63:
+                        session.processor_data["edit_dialog_id"] = viewing_dialog.id
+                        
+                    # Кнопка удаления диалога
+                    elif selected_option.id == 74:
+                        viewing_dialog = session.processor_data.get(
+                            "viewing_dialog"
+                        )
 
-                    if viewing_dialog is not None:
-                        session.processor_data[
-                            "delete_dialog_id"
-                        ] = viewing_dialog.id
+                        if viewing_dialog is not None:
+                            session.processor_data[
+                                "delete_dialog_id"
+                            ] = viewing_dialog.id
                         
 
         if (
             dialog.id == 13
+            and selected_option is not None
             and selected_option.id == 75
         ):
             session.processor_data[
