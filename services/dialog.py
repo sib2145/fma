@@ -354,6 +354,32 @@ class DialogService:
                             "Не удалось удалить диалог:",
                             delete_dialog_id,
                         )
+                        
+        # --------------------------------------------------
+        # Просмотр кнопки диалога
+        # --------------------------------------------------
+
+        elif dialog.id == 15:
+            viewing_option = session.processor_data.get(
+                "viewing_option"
+            )
+
+            if viewing_option is not None:
+                dialog.template_context.update({
+                    "option": viewing_option,
+                })
+        
+        # Редактирование названия кнопки диалога
+        elif dialog.id == 17:
+            viewing_option = session.processor_data.get(
+                "viewing_option"
+            )
+
+            if viewing_option is not None:
+                dialog.template_context.update({
+                    "option": viewing_option,
+                })
+
 
 
         return session
@@ -469,6 +495,78 @@ class DialogService:
             session.processor_data[
                 "confirmed"
             ] = 1
+
+
+        elif dialog.id == 18:
+            # --------------------------------------------------
+            # Подтверждение удаления кнопки.
+            #
+            # Опция 91 — "Удалить".
+            # Опция 92 — "Отмена".
+            # --------------------------------------------------
+
+            if (
+                selected_option is not None
+                and selected_option.id == 91
+            ):
+                viewing_option = session.processor_data.get(
+                    "viewing_option"
+                )
+
+                if viewing_option is None:
+                    print(
+                        "Не удалось определить "
+                        "удаляемую кнопку."
+                    )
+                    return session
+
+                # --------------------------------------------------
+                # Удаляем кнопку.
+                # --------------------------------------------------
+
+                dialog_id = await self.delete_option(
+                    viewing_option.id
+                )
+
+                if dialog_id is None:
+                    print(
+                        f"Не удалось удалить кнопку "
+                        f"{viewing_option.id}."
+                    )
+                    return session
+
+                # --------------------------------------------------
+                # Заново загружаем просматриваемый диалог.
+                #
+                # Это важно: в нём уже не должно быть
+                # удалённой кнопки.
+                # --------------------------------------------------
+
+                viewing_dialog = await self.get_by_id(
+                    dialog_id
+                )
+
+                if viewing_dialog is None:
+                    print(
+                        f"Диалог {dialog_id} не найден "
+                        f"после удаления кнопки."
+                    )
+                    return session
+
+                session.processor_data[
+                    "viewing_dialog"
+                ] = viewing_dialog
+                
+                session.processor_data.pop(
+                    "viewing_option",
+                    None
+                )
+
+                # --------------------------------------------------
+                # Возвращаемся к просмотру диалога.
+                # --------------------------------------------------
+
+                session.dialog = await self.get_by_id(6)
 
 
 
@@ -639,7 +737,107 @@ class DialogService:
                             None
                         )
 
-        
+        elif dialog.id == 17:
+            # --------------------------------------------------
+            # Редактирование текста кнопки.
+            # --------------------------------------------------
+
+            viewing_option = session.processor_data.get(
+                "viewing_option"
+            )
+
+            if viewing_option is None:
+                return (
+                    False,
+                    session,
+                    "Не удалось определить редактируемую кнопку."
+                )
+
+            # --------------------------------------------------
+            # Обновляем текст кнопки.
+            # --------------------------------------------------
+
+            updated = await self.text_service.update(
+                viewing_option.text.id,
+                user_input,
+            )
+
+            if not updated:
+                return (
+                    False,
+                    session,
+                    "Не удалось обновить текст кнопки."
+                )
+
+            # --------------------------------------------------
+            # Заново загружаем диалог, которому принадлежит
+            # редактируемая кнопка.
+            # --------------------------------------------------
+
+            viewing_dialog = session.processor_data.get(
+                "viewing_dialog"
+            )
+
+            if viewing_dialog is None:
+                return (
+                    False,
+                    session,
+                    "Не удалось определить исходный диалог."
+                )
+
+            viewing_dialog = await self.get_by_id(
+                viewing_dialog.id
+            )
+
+            if viewing_dialog is None:
+                return (
+                    False,
+                    session,
+                    "Исходный диалог не найден."
+                )
+
+            session.processor_data[
+                "viewing_dialog"
+            ] = viewing_dialog
+
+            # --------------------------------------------------
+            # Получаем обновлённое представление кнопки.
+            # --------------------------------------------------
+
+            updated_option = next(
+                (
+                    option
+                    for option in viewing_dialog.options
+                    if option.id == viewing_option.id
+                ),
+                None,
+            )
+
+            if updated_option is None:
+                return (
+                    False,
+                    session,
+                    "Кнопка не найдена после обновления."
+                )
+
+            session.processor_data[
+                "viewing_option"
+            ] = updated_option
+
+            # --------------------------------------------------
+            # Возвращаемся к просмотру кнопки.
+            # --------------------------------------------------
+
+            session.dialog = await self.get_by_id(15)
+
+            return (
+                True,
+                session,
+                None,
+            )
+
+
+
         
         
         #####
