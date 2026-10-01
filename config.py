@@ -26,3 +26,9 @@ START_EXTRA_DIALOG_ID = config.getint(
     "start_extra_dialog_id",
     fallback=1,
 )
+
+CLI_START_EXTRA_DIALOG_ID = config.getint(
+    "dialog",
+    "cli_start_extra_dialog_id",
+    fallback=1,
+)
