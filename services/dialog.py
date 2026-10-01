@@ -39,6 +39,11 @@ from views.dialog import (
 
 from views.dialog_session import DialogSession
 
+from sqlalchemy import delete
+
+from models.player import Player
+
+
 class DialogService:
     def __init__(
         self,
@@ -244,6 +249,60 @@ class DialogService:
                 "dialog_list_pages": pages_count,
                 "dialogs_per_page": self.dialogs_per_page,
             })
+            
+        # --------------------------------------------------
+        # Удаление диалога
+        # --------------------------------------------------
+        
+        # --------------------------------------------------
+        # Если confirmed не установлен, просто показываем
+        # обычный диалог подтверждения.
+        # --------------------------------------------------
+
+        elif dialog.id == 13:
+
+            confirmed = session.processor_data.pop(
+                "confirmed",
+                0,
+            )
+
+            if confirmed == 1:
+
+                delete_dialog_id = (
+                    session.processor_data.pop(
+                        "delete_dialog_id",
+                        None,
+                    )
+                )
+
+                if delete_dialog_id is not None:
+
+                    deleted = await self.delete(
+                        delete_dialog_id
+                    )
+
+                    if deleted:
+
+                        next_dialog = await self.get_by_id(
+                            7
+                        )
+
+                        if next_dialog is not None:
+                            session.dialog = next_dialog
+
+                            # После удаления старый просмотренный
+                            # DialogView больше не существует.
+                            session.processor_data.pop(
+                                "viewing_dialog",
+                                None,
+                            )
+
+                    else:
+                        print(
+                            "Не удалось удалить диалог:",
+                            delete_dialog_id,
+                        )
+
 
         return session
 
@@ -301,6 +360,28 @@ class DialogService:
                 # Кнопка "редактировать текст"
                 elif selected_option.id == 63:
                     session.processor_data["edit_dialog_id"] = viewing_dialog.id
+                    
+                # Кнопка удаления диалога
+                elif selected_option.id == 74:
+                    viewing_dialog = session.processor_data.get(
+                        "viewing_dialog"
+                    )
+
+                    if viewing_dialog is not None:
+                        session.processor_data[
+                            "delete_dialog_id"
+                        ] = viewing_dialog.id
+                        
+
+        if (
+            dialog.id == 13
+            and selected_option.id == 75
+        ):
+            session.processor_data[
+                "confirmed"
+            ] = 1
+
+
 
         return session
 
@@ -1395,3 +1476,219 @@ class DialogService:
 
             processor_flag=processor_flag,
         )
+
+
+    async def delete(
+        self,
+        dialog_id: int,
+    ) -> bool:
+        """
+        Удаляет диалог и связанные с ним данные.
+
+        Перед удалением:
+        - отвязывает другие кнопки, ведущие на этот диалог;
+        - очищает текущий диалог игроков;
+        - удаляет сохранённые выборы;
+        - удаляет условия;
+        - удаляет кнопки диалога;
+        - удаляет сам диалог.
+
+        Тексты удаляются только в том случае, если они
+        больше нигде не используются.
+        """
+
+        async with self.db.session_factory() as session:
+
+            # --------------------------------------------------
+            # Проверяем существование диалога.
+            # --------------------------------------------------
+
+            dialog = await session.get(
+                Dialog,
+                dialog_id,
+            )
+
+            if dialog is None:
+                return False
+
+            # --------------------------------------------------
+            # Получаем кнопки удаляемого диалога.
+            #
+            # Нам понадобятся их id и text_id.
+            # --------------------------------------------------
+
+            result = await session.execute(
+                select(DialogOption).where(
+                    DialogOption.dialog_id == dialog_id
+                )
+            )
+
+            options = list(result.scalars())
+
+            option_ids = [
+                option.id
+                for option in options
+            ]
+
+            option_text_ids = [
+                option.text_id
+                for option in options
+            ]
+
+            dialog_text_id = dialog.text_id
+
+            # --------------------------------------------------
+            # Другие кнопки могут вести на удаляемый диалог.
+            #
+            # После удаления они должны просто перестать
+            # иметь следующий диалог.
+            # --------------------------------------------------
+
+            result = await session.execute(
+                select(DialogOption).where(
+                    DialogOption.next_dialog_id
+                    == dialog_id
+                )
+            )
+
+            linked_options = list(result.scalars())
+
+            for option in linked_options:
+                option.next_dialog_id = None
+
+            # --------------------------------------------------
+            # Игроки могут находиться в удаляемом диалоге.
+            #
+            # Чтобы после удаления у них не осталось
+            # ссылки на несуществующий диалог.
+            # --------------------------------------------------
+
+            result = await session.execute(
+                select(Player).where(
+                    (Player.current_dialog_id == dialog_id)
+                    | (
+                        Player.current_extra_dialog_id
+                        == dialog_id
+                    )
+                )
+            )
+
+            players = list(result.scalars())
+
+            for player in players:
+
+                if player.current_dialog_id == dialog_id:
+                    player.current_dialog_id = None
+
+                if (
+                    player.current_extra_dialog_id
+                    == dialog_id
+                ):
+                    player.current_extra_dialog_id = None
+
+            # --------------------------------------------------
+            # Удаляем сохранённые выборы игроков,
+            # связанные с удаляемым диалогом.
+            # --------------------------------------------------
+
+            await session.execute(
+                delete(PlayerDialogChoice).where(
+                    PlayerDialogChoice.dialog_id
+                    == dialog_id
+                )
+            )
+
+            # --------------------------------------------------
+            # Удаляем условия самого диалога.
+            # --------------------------------------------------
+
+            await session.execute(
+                delete(Condition).where(
+                    Condition.dialog_id == dialog_id
+                )
+            )
+
+            # --------------------------------------------------
+            # Удаляем условия кнопок.
+            # --------------------------------------------------
+
+            if option_ids:
+                await session.execute(
+                    delete(Condition).where(
+                        Condition.option_id.in_(
+                            option_ids
+                        )
+                    )
+                )
+
+            # --------------------------------------------------
+            # Удаляем кнопки.
+            # --------------------------------------------------
+
+            if option_ids:
+                await session.execute(
+                    delete(DialogOption).where(
+                        DialogOption.id.in_(
+                            option_ids
+                        )
+                    )
+                )
+
+            # --------------------------------------------------
+            # Удаляем сам диалог.
+            # --------------------------------------------------
+
+            await session.delete(dialog)
+
+            await session.flush()
+
+            # --------------------------------------------------
+            # Удаляем тексты кнопок и самого диалога,
+            # только если они больше нигде не используются.
+            #
+            # Это важно, потому что один Text теоретически
+            # может быть связан с несколькими объектами.
+            # --------------------------------------------------
+
+            text_ids = set(
+                option_text_ids
+            )
+
+            text_ids.add(dialog_text_id)
+
+            for text_id in text_ids:
+
+                # Текст всё ещё используется диалогом?
+                result = await session.execute(
+                    select(Dialog.id)
+                    .where(
+                        Dialog.text_id == text_id
+                    )
+                    .limit(1)
+                )
+
+                if result.scalar_one_or_none() is not None:
+                    continue
+
+                # Текст всё ещё используется кнопкой?
+                result = await session.execute(
+                    select(DialogOption.id)
+                    .where(
+                        DialogOption.text_id
+                        == text_id
+                    )
+                    .limit(1)
+                )
+
+                if result.scalar_one_or_none() is not None:
+                    continue
+
+                await session.execute(
+                    delete(Text).where(
+                        Text.id == text_id
+                    )
+                )
+
+            await session.commit()
+
+            return True
