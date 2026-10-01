@@ -38,6 +38,7 @@ from views.dialog import (
 )
 
 from views.dialog_session import DialogSession
+from views.text import TextView
 
 from sqlalchemy import delete
 
@@ -122,6 +123,57 @@ class DialogService:
                 dialog.template_context.update({
                     "dialog": viewed_dialog,
                 })
+
+                # --------------------------------------------------
+                # Динамические кнопки просматриваемого диалога.
+                #
+                # В старой админке они располагаются сразу после
+                # кнопки "Добавить кнопку".
+                # --------------------------------------------------
+
+                add_option_index = None
+
+                for index, option in enumerate(dialog.options):
+                    if option.id == 65:
+                        add_option_index = index
+                        break
+
+                if add_option_index is not None:
+                    dynamic_options = []
+
+                    for option in viewed_dialog.options:
+                        button_text = (
+                            f"Кнопка: {option.text.text}"
+                        )
+
+                        dynamic_options.append(
+                            DialogOptionView(
+                                id=None,
+                                dialog_id=dialog.id,
+                                condition=None,
+                                weight=None,
+                                text=TextView(
+                                    id=option.text.id,
+                                    locale_id=option.text.locale_id,
+                                    template=button_text,
+                                    text=button_text,
+                                ),
+                                next_dialog_id=15,
+                                next_dialog_text=None,
+                                show_dialog_mode=None,
+                                save_choice=False,
+                                processor_flag=(
+                                    f"view_option:{option.id}"
+                                ),
+                            )
+                        )
+
+                    # Вставляем сразу после "Добавить кнопку".
+                    dialog.options[
+                        add_option_index + 1:
+                        add_option_index + 1
+                    ] = dynamic_options
+
 
         # --------------------------------------------------
         # Редактор диалогов - главная страница
@@ -343,6 +395,34 @@ class DialogService:
             viewing_dialog = session.processor_data.get(
                 "viewing_dialog"
             )
+            
+            # Обработка динамических кнопок для просмотра существующих кнопок в диалоге
+            # Добавляет viewing_option в параметры для использования в диалоге просмотра кнопки
+            if (
+                selected_option is not None
+                and selected_option.processor_flag is not None
+                and selected_option.processor_flag.startswith(
+                    "view_option:"
+                )
+                and viewing_dialog is not None
+            ):
+                option_id = int(
+                    selected_option.processor_flag.split(":", 1)[1]
+                )
+
+                viewed_option = next(
+                    (
+                        option
+                        for option in viewing_dialog.options
+                        if option.id == option_id
+                    ),
+                    None,
+                )
+
+                if viewed_option is not None:
+                    session.processor_data[
+                        "viewing_option"
+                    ] = viewed_option
 
             if viewing_dialog is not None:
                 if selected_option is not None:
