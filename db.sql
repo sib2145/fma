@@ -121,7 +121,7 @@ INSERT INTO "condition_types" VALUES (5,21,5,'or');
 INSERT INTO "condition_types" VALUES (6,22,6,'function result');
 INSERT INTO "condition_types" VALUES (7,23,7,'player flag <x> = <y>');
 INSERT INTO "conditions" VALUES (1,2,NULL,4,1,1,'1',NULL);
-INSERT INTO "dialog_options" VALUES (49,1,NULL,1,5007,2,1,NULL);
+INSERT INTO "dialog_options" VALUES (49,1,NULL,2,5007,2,1,NULL);
 INSERT INTO "dialog_options" VALUES (50,2,NULL,1,5009,NULL,1,NULL);
 INSERT INTO "dialog_options" VALUES (52,2,NULL,2,5011,NULL,1,NULL);
 INSERT INTO "dialog_options" VALUES (53,2,NULL,3,5012,NULL,1,NULL);
@@ -142,7 +142,7 @@ INSERT INTO "dialog_options" VALUES (67,7,NULL,1,5032,8,1,NULL);
 INSERT INTO "dialog_options" VALUES (68,7,NULL,2,5033,9,1,NULL);
 INSERT INTO "dialog_options" VALUES (69,7,NULL,3,5034,10,1,NULL);
 INSERT INTO "dialog_options" VALUES (70,7,NULL,4,5035,NULL,1,NULL);
-INSERT INTO "dialog_options" VALUES (71,7,NULL,5,5036,NULL,1,NULL);
+INSERT INTO "dialog_options" VALUES (71,7,NULL,5,5036,5,1,NULL);
 INSERT INTO "dialog_options" VALUES (72,8,NULL,1,5038,7,1,NULL);
 INSERT INTO "dialog_options" VALUES (73,11,NULL,1,5047,NULL,0,NULL);
 INSERT INTO "dialog_options" VALUES (74,6,NULL,5,5049,13,0,NULL);
@@ -153,15 +153,16 @@ INSERT INTO "dialog_options" VALUES (82,15,NULL,1,5059,17,0,NULL);
 INSERT INTO "dialog_options" VALUES (83,15,NULL,2,5060,18,0,NULL);
 INSERT INTO "dialog_options" VALUES (84,15,NULL,3,5061,15,0,NULL);
 INSERT INTO "dialog_options" VALUES (85,15,NULL,4,5062,15,0,NULL);
-INSERT INTO "dialog_options" VALUES (86,15,NULL,5,5063,NULL,0,NULL);
-INSERT INTO "dialog_options" VALUES (87,15,NULL,6,5064,NULL,0,NULL);
-INSERT INTO "dialog_options" VALUES (88,15,NULL,7,5065,NULL,0,NULL);
+INSERT INTO "dialog_options" VALUES (86,15,NULL,5,5063,6,0,NULL);
+INSERT INTO "dialog_options" VALUES (87,15,NULL,6,5064,19,0,NULL);
+INSERT INTO "dialog_options" VALUES (88,15,NULL,7,5065,20,0,NULL);
 INSERT INTO "dialog_options" VALUES (89,15,NULL,8,5066,6,0,NULL);
 INSERT INTO "dialog_options" VALUES (90,17,NULL,1,5067,15,0,NULL);
 INSERT INTO "dialog_options" VALUES (91,18,NULL,1,5068,NULL,0,NULL);
 INSERT INTO "dialog_options" VALUES (92,18,NULL,2,5069,15,0,NULL);
-INSERT INTO "dialog_options" VALUES (94,1,NULL,3,5071,NULL,1,NULL);
-INSERT INTO "dialog_options" VALUES (95,1,NULL,2,5072,NULL,1,NULL);
+INSERT INTO "dialog_options" VALUES (96,19,NULL,1,5073,NULL,0,NULL);
+INSERT INTO "dialog_options" VALUES (97,19,NULL,2,5074,15,0,NULL);
+INSERT INTO "dialog_options" VALUES (98,20,NULL,1,5075,15,0,NULL);
 INSERT INTO "dialogs" VALUES (1,5006,NULL,NULL,1,0,0,0,'Сюжетный 1');
 INSERT INTO "dialogs" VALUES (2,5008,NULL,4,1,1,0,0,'Сюжетный 2');
 INSERT INTO "dialogs" VALUES (3,5015,NULL,2,0,0,0,0,'Сюжетный, подсказка кем был и прибавки');
@@ -177,10 +178,10 @@ INSERT INTO "dialogs" VALUES (12,5042,NULL,NULL,0,0,1,0,'Стартовое ме
 INSERT INTO "dialogs" VALUES (13,5043,NULL,NULL,0,0,1,0,'Подтверждение удаления диалога');
 INSERT INTO "dialogs" VALUES (14,5044,NULL,6,0,0,1,1,'Добавление новой кнопки');
 INSERT INTO "dialogs" VALUES (15,5045,NULL,NULL,0,0,1,0,'Просмотр кнопки');
-INSERT INTO "dialogs" VALUES (17,5048,NULL,NULL,0,0,1,1,'Редактировать название кнопки');
-INSERT INTO "dialogs" VALUES (18,5052,NULL,NULL,0,0,1,0,'Удалить кнопку');
-INSERT INTO "dialogs" VALUES (19,5053,NULL,NULL,0,0,1,0,'Подтверждение отвязки следующего диалога от кнопки');
-INSERT INTO "dialogs" VALUES (20,5054,NULL,NULL,0,0,1,1,'Назначить диалог следующим для кнопки');
+INSERT INTO "dialogs" VALUES (17,5048,NULL,15,0,0,1,1,'Редактировать название кнопки');
+INSERT INTO "dialogs" VALUES (18,5052,NULL,6,0,0,1,0,'Удалить кнопку');
+INSERT INTO "dialogs" VALUES (19,5053,NULL,15,0,0,1,0,'Подтверждение отвязки следующего диалога от кнопки');
+INSERT INTO "dialogs" VALUES (20,5054,NULL,15,0,0,1,1,'Назначить диалог следующим для кнопки');
 INSERT INTO "dialogs" VALUES (21,5055,NULL,NULL,1,0,0,0,NULL);
 INSERT INTO "dialogs" VALUES (22,5056,NULL,NULL,1,0,0,0,NULL);
 INSERT INTO "dialogs" VALUES (23,5057,NULL,NULL,1,0,0,0,NULL);
@@ -329,15 +330,24 @@ INSERT INTO "texts" VALUES (5041,1,'Введите текст диалога:');
 INSERT INTO "texts" VALUES (5042,1,'(текст, Стартовое меню игры)');
 INSERT INTO "texts" VALUES (5043,1,'Вы действительно хотите удалить этот диалог?');
 INSERT INTO "texts" VALUES (5044,1,'Введите текст новой кнопки:');
-INSERT INTO "texts" VALUES (5045,1,'<b>Кнопка:</b> {{option.text.text}}');
+INSERT INTO "texts" VALUES (5045,1,'<b>Кнопка:</b> {{option.text.text}}
+<b>ID:</b> {{option.id}}
+
+{% if option.next_dialog_id -%}
+<b>Связанный диалог:</b>
+<b>ID:</b>{{ option.next_dialog_id }}
+<b>Комментарий:</b> ...
+{% else %}
+<b>Связанный диалог:</b> Нет
+{% endif -%}');
 INSERT INTO "texts" VALUES (5047,1,'Отмена');
 INSERT INTO "texts" VALUES (5048,1,'Введите новый текст кнопки:');
 INSERT INTO "texts" VALUES (5049,1,'Удалить диалог');
 INSERT INTO "texts" VALUES (5050,1,'Удалить');
 INSERT INTO "texts" VALUES (5051,1,'Отмена');
-INSERT INTO "texts" VALUES (5052,1,'Тестовый диалог из консоли');
-INSERT INTO "texts" VALUES (5053,1,'=1');
-INSERT INTO "texts" VALUES (5054,1,'ввв');
+INSERT INTO "texts" VALUES (5052,1,'Вы уверены, что хотите удалить эту кнопку?');
+INSERT INTO "texts" VALUES (5053,1,'Вы уверены, что хотите отвязать следующий диалог от кнопки?');
+INSERT INTO "texts" VALUES (5054,1,'Введите id следующего диалога:');
 INSERT INTO "texts" VALUES (5055,1,'ыыы');
 INSERT INTO "texts" VALUES (5056,1,'fff');
 INSERT INTO "texts" VALUES (5057,1,'gggg');
@@ -356,6 +366,12 @@ INSERT INTO "texts" VALUES (5069,1,'Отмена');
 INSERT INTO "texts" VALUES (5070,1,'test 1');
 INSERT INTO "texts" VALUES (5071,1,'test2');
 INSERT INTO "texts" VALUES (5072,1,'test1');
+INSERT INTO "texts" VALUES (5073,1,'Отвязать');
+INSERT INTO "texts" VALUES (5074,1,'Отмена');
+INSERT INTO "texts" VALUES (5075,1,'Отмена');
+INSERT INTO "texts" VALUES (5076,1,'test');
+INSERT INTO "texts" VALUES (5077,1,'test2');
+INSERT INTO "texts" VALUES (5078,1,'test');
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_player_dialog_choice_unique" ON "player_dialog_choices" (
 	"player_id",
 	"dialog_id",
