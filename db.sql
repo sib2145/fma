@@ -141,7 +141,7 @@ INSERT INTO "dialog_options" VALUES (66,6,NULL,6,5030,7,1,NULL);
 INSERT INTO "dialog_options" VALUES (67,7,NULL,1,5032,8,1,NULL);
 INSERT INTO "dialog_options" VALUES (68,7,NULL,2,5033,9,1,NULL);
 INSERT INTO "dialog_options" VALUES (69,7,NULL,3,5034,10,1,NULL);
-INSERT INTO "dialog_options" VALUES (70,7,NULL,4,5035,NULL,1,NULL);
+INSERT INTO "dialog_options" VALUES (70,7,NULL,4,5035,21,1,NULL);
 INSERT INTO "dialog_options" VALUES (71,7,NULL,5,5036,5,1,NULL);
 INSERT INTO "dialog_options" VALUES (72,8,NULL,1,5038,7,1,NULL);
 INSERT INTO "dialog_options" VALUES (73,11,NULL,1,5047,NULL,0,NULL);
@@ -163,6 +163,9 @@ INSERT INTO "dialog_options" VALUES (92,18,NULL,2,5069,15,0,NULL);
 INSERT INTO "dialog_options" VALUES (96,19,NULL,1,5073,NULL,0,NULL);
 INSERT INTO "dialog_options" VALUES (97,19,NULL,2,5074,15,0,NULL);
 INSERT INTO "dialog_options" VALUES (98,20,NULL,1,5075,15,0,NULL);
+INSERT INTO "dialog_options" VALUES (99,10,NULL,1,5079,10,0,NULL);
+INSERT INTO "dialog_options" VALUES (100,10,NULL,2,5080,10,0,NULL);
+INSERT INTO "dialog_options" VALUES (101,10,NULL,3,5081,7,0,NULL);
 INSERT INTO "dialogs" VALUES (1,5006,NULL,NULL,1,0,0,0,'Сюжетный 1');
 INSERT INTO "dialogs" VALUES (2,5008,NULL,4,1,1,0,0,'Сюжетный 2');
 INSERT INTO "dialogs" VALUES (3,5015,NULL,2,0,0,0,0,'Сюжетный, подсказка кем был и прибавки');
@@ -182,7 +185,7 @@ INSERT INTO "dialogs" VALUES (17,5048,NULL,15,0,0,1,1,'Редактироват�
 INSERT INTO "dialogs" VALUES (18,5052,NULL,6,0,0,1,0,'Удалить кнопку');
 INSERT INTO "dialogs" VALUES (19,5053,NULL,15,0,0,1,0,'Подтверждение отвязки следующего диалога от кнопки');
 INSERT INTO "dialogs" VALUES (20,5054,NULL,15,0,0,1,1,'Назначить диалог следующим для кнопки');
-INSERT INTO "dialogs" VALUES (21,5055,NULL,NULL,1,0,0,0,NULL);
+INSERT INTO "dialogs" VALUES (21,5055,NULL,10,0,0,1,1,'Поиск диалогов, ввод строки');
 INSERT INTO "dialogs" VALUES (22,5056,NULL,NULL,1,0,0,0,NULL);
 INSERT INTO "dialogs" VALUES (23,5057,NULL,NULL,1,0,0,0,NULL);
 INSERT INTO "locales" VALUES (1,'ru');
@@ -348,7 +351,7 @@ INSERT INTO "texts" VALUES (5051,1,'Отмена');
 INSERT INTO "texts" VALUES (5052,1,'Вы уверены, что хотите удалить эту кнопку?');
 INSERT INTO "texts" VALUES (5053,1,'Вы уверены, что хотите отвязать следующий диалог от кнопки?');
 INSERT INTO "texts" VALUES (5054,1,'Введите id следующего диалога:');
-INSERT INTO "texts" VALUES (5055,1,'ыыы');
+INSERT INTO "texts" VALUES (5055,1,'Введите строку для поиска диалога:');
 INSERT INTO "texts" VALUES (5056,1,'fff');
 INSERT INTO "texts" VALUES (5057,1,'gggg');
 INSERT INTO "texts" VALUES (5058,1,'Отмена');
@@ -372,6 +375,9 @@ INSERT INTO "texts" VALUES (5075,1,'Отмена');
 INSERT INTO "texts" VALUES (5076,1,'test');
 INSERT INTO "texts" VALUES (5077,1,'test2');
 INSERT INTO "texts" VALUES (5078,1,'test');
+INSERT INTO "texts" VALUES (5079,1,'◀ Назад');
+INSERT INTO "texts" VALUES (5080,1,'Вперёд ▶');
+INSERT INTO "texts" VALUES (5081,1,'Вернуться');
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_player_dialog_choice_unique" ON "player_dialog_choices" (
 	"player_id",
 	"dialog_id",

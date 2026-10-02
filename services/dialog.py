@@ -189,10 +189,7 @@ class DialogService:
         # --------------------------------------------------
         # Редактор диалогов - список диалогов
         # --------------------------------------------------
-
         elif dialog.id == 10:
-            import math
-
             dialogs_count = await self.count()
 
             pages_count = max(
@@ -203,8 +200,10 @@ class DialogService:
             )
 
             # Получаем текущую страницу из session.
+            # Если страница ещё не была установлена —
+            # показываем первую.
             page = session.processor_data.get(
-                "page",
+                "dialog_list_page",
                 1,
             )
 
@@ -213,26 +212,6 @@ class DialogService:
             except (TypeError, ValueError):
                 page = 1
 
-            # --------------------------------------------------
-            # Обрабатываем выбранную динамическую кнопку.
-            #
-            # Здесь больше НЕТ option_index.
-            # --------------------------------------------------
-
-            if selected_option is not None:
-
-                if (
-                    selected_option.processor_flag
-                    == "previous_page"
-                ):
-                    page -= 1
-
-                elif (
-                    selected_option.processor_flag
-                    == "next_page"
-                ):
-                    page += 1
-
             # Ограничиваем страницу допустимым диапазоном.
             page = max(
                 1,
@@ -240,67 +219,111 @@ class DialogService:
             )
 
             session.processor_data[
-                "page"
+                "dialog_list_page"
             ] = page
 
+            # --------------------------------------------------
+            # Получаем диалоги текущей страницы.
+            # --------------------------------------------------
             dialogs = await self.get_page(
                 page=page,
                 per_page=self.dialogs_per_page,
             )
 
-            dialog.options.clear()
+            # --------------------------------------------------
+            # Находим постоянные кнопки, которые пришли из БД.
+            #
+            # 99  - Назад
+            # 100 - Вперёд
+            # 101 - В редактор
+            # --------------------------------------------------
+            previous_option = next(
+                (
+                    option
+                    for option in dialog.options
+                    if option.id == 99
+                ),
+                None,
+            )
+
+            next_option = next(
+                (
+                    option
+                    for option in dialog.options
+                    if option.id == 100
+                ),
+                None,
+            )
+
+            editor_option = next(
+                (
+                    option
+                    for option in dialog.options
+                    if option.id == 101
+                ),
+                None,
+            )
 
             # --------------------------------------------------
-            # Кнопки диалогов.
+            # Создаём динамические кнопки диалогов.
             # --------------------------------------------------
+            dynamic_options = []
 
             for item in dialogs:
-                option = await self._create_dynamic_option(
-                    dialog_id=dialog.id,
-                    text=(
-                        f"{item.id}. "
-                        f"{item.comment or item.text.text}"
-                    ),
-                    next_dialog_id=item.id,
-                    processor_flag="open_dialog",
-                )
-
-                dialog.options.append(option)
-
-            # --------------------------------------------------
-            # Кнопка "Назад".
-            # --------------------------------------------------
-
-            if page > 1:
-                dialog.options.append(
+                dynamic_options.append(
                     await self._create_dynamic_option(
                         dialog_id=dialog.id,
-                        text="◀ Назад",
-                        next_dialog_id=dialog.id,
-                        processor_flag="previous_page",
+                        text=(
+                            f"{item.id}. "
+                            f"{item.comment or item.text.text}"
+                        ),
+                        next_dialog_id=6,
+                        processor_flag=f"view_dialog:{item.id}",
                     )
                 )
 
             # --------------------------------------------------
-            # Кнопка "Вперёд".
+            # Формируем итоговый список кнопок.
+            #
+            # Динамические кнопки
+            #        ↓
+            # Назад / Вперёд
+            #        ↓
+            # В редактор
             # --------------------------------------------------
+            dialog.options = dynamic_options
 
-            if page < pages_count:
+            if (
+                page > 1
+                and previous_option is not None
+            ):
                 dialog.options.append(
-                    await self._create_dynamic_option(
-                        dialog_id=dialog.id,
-                        text="Вперёд ▶",
-                        next_dialog_id=dialog.id,
-                        processor_flag="next_page",
-                    )
+                    previous_option
                 )
 
+            if (
+                page < pages_count
+                and next_option is not None
+            ):
+                dialog.options.append(
+                    next_option
+                )
+
+            if editor_option is not None:
+                dialog.options.append(
+                    editor_option
+                )
+
+            # --------------------------------------------------
+            # Данные для шаблона.
+            # --------------------------------------------------
             dialog.template_context.update({
                 "dialogs_count": dialogs_count,
                 "dialog_list_page": page,
                 "dialog_list_pages": pages_count,
                 "dialogs_per_page": self.dialogs_per_page,
             })
+
             
         # --------------------------------------------------
         # Удаление диалога
@@ -566,9 +589,96 @@ class DialogService:
                             viewing_dialog.id
                         )
 
+
+        # --------------------------------------------------
+        # Редактор диалогов - список диалогов
+        # --------------------------------------------------
+        elif dialog.id == 10:
+            if selected_option is None:
+                return session
+
+            # --------------------------------------------------
+            # ◀ Назад
+            #
+            # Следующий диалог остаётся 10.
+            # Перед переходом сохраняем предыдущую страницу.
+            # --------------------------------------------------
+            if selected_option.id == 99:
+                page = session.processor_data.get(
+                    "dialog_list_page",
+                    1,
+                )
+
+                try:
+                    page = int(page)
+                except (TypeError, ValueError):
+                    page = 1
+
+                session.processor_data[
+                    "dialog_list_page"
+                ] = max(1, page - 1)
+
+            # --------------------------------------------------
+            # Вперёд ▶
+            #
+            # Следующий диалог остаётся 10.
+            # Перед переходом сохраняем следующую страницу.
+            # --------------------------------------------------
+            elif selected_option.id == 100:
+                page = session.processor_data.get(
+                    "dialog_list_page",
+                    1,
+                )
+
+                try:
+                    page = int(page)
+                except (TypeError, ValueError):
+                    page = 1
+
+                session.processor_data[
+                    "dialog_list_page"
+                ] = page + 1
+
+            # --------------------------------------------------
+            # В редактор
+            #
+            # Опция 101 сама имеет next_dialog_id = 7,
+            # поэтому здесь достаточно очистить состояние
+            # списка.
+            # --------------------------------------------------
+            elif selected_option.id == 101:
+                session.processor_data.pop(
+                    "dialog_list_page",
+                    None,
+                )
+                
+            # Если нажата кнопка с просмотром id конкретного диалога            
+            elif selected_option.processor_flag:
+                if selected_option.processor_flag.startswith(
+                    "view_dialog:"
+                ):
+                    dialog_id = int(
+                        selected_option.processor_flag.split(
+                            ":",
+                            1,
+                        )[1]
+                    )
+                    
+                    viewing_dialog = await self.get_by_id(
+                        dialog_id
+                    )
+                    
+                    if viewing_dialog is None:
+                        return session
+
+                    session.processor_data[
+                        "viewing_dialog"
+                    ] = viewing_dialog
+
+
                         
         # Подтверждения удаления диалога при нажатии соотв. кнопки
-        if (
+        elif (
             dialog.id == 13
             and selected_option is not None
             and selected_option.id == 75
