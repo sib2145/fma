@@ -2238,6 +2238,11 @@ class DialogService:
     ) -> DialogOptionView:
 
         next_dialog_text = None
+        next_dialog_comment = (
+            option.next_dialog.comment
+            if option.next_dialog is not None
+            else None
+        )
 
         if option.next_dialog is not None:
             next_dialog_text = await self.text_service.create_view(
@@ -2257,11 +2262,12 @@ class DialogService:
 
             next_dialog_id=option.next_dialog_id,
             next_dialog_text=next_dialog_text,
-
             show_dialog_mode=option.show_dialog_mode,
             save_choice=option.save_choice,
 
             processor_flag=None,
+            
+            next_dialog_comment=next_dialog_comment,
         )
 
 
@@ -2271,14 +2277,17 @@ class DialogService:
     ) -> DialogView:
 
         next_dialog_text = None
-        next_dialog_comment = None
+        
+        next_dialog_comment = (
+            dialog.next_dialog.comment
+            if dialog.next_dialog is not None
+            else None
+        )
 
         if dialog.next_dialog is not None:
             next_dialog_text = await self.text_service.create_view(
                 dialog.next_dialog.text
             )
-            
-            next_dialog_comment = dialog.next_dialog.comment
             
 
         options = [

@@ -169,13 +169,14 @@ INSERT INTO "dialog_options" VALUES (101,10,NULL,5,5081,7,0,NULL);
 INSERT INTO "dialog_options" VALUES (102,10,NULL,3,5082,10,0,NULL);
 INSERT INTO "dialog_options" VALUES (103,10,NULL,4,5083,21,0,NULL);
 INSERT INTO "dialog_options" VALUES (104,21,NULL,1,5084,10,0,NULL);
+INSERT INTO "dialog_options" VALUES (105,9,NULL,1,5085,7,1,NULL);
 INSERT INTO "dialogs" VALUES (1,5006,NULL,NULL,1,0,0,0,'Сюжетный 1');
 INSERT INTO "dialogs" VALUES (2,5008,NULL,4,1,1,0,0,'Сюжетный 2');
 INSERT INTO "dialogs" VALUES (3,5015,NULL,2,0,0,0,0,'Сюжетный, подсказка кем был и прибавки');
 INSERT INTO "dialogs" VALUES (4,5016,NULL,NULL,1,0,0,0,'Сюжетный 3');
 INSERT INTO "dialogs" VALUES (5,5019,NULL,NULL,0,0,1,0,'Панель админки главная');
 INSERT INTO "dialogs" VALUES (6,5025,NULL,NULL,0,0,1,0,'Просмотр диалога');
-INSERT INTO "dialogs" VALUES (7,5031,NULL,NULL,0,0,1,0,'Страница редактора диалогов');
+INSERT INTO "dialogs" VALUES (7,5031,NULL,NULL,0,0,1,0,'Редактор диалогов');
 INSERT INTO "dialogs" VALUES (8,5037,NULL,6,0,0,1,1,'Ввод текста нового диалога');
 INSERT INTO "dialogs" VALUES (9,5039,NULL,6,0,0,1,1,'Ввод id диалога для просмотра');
 INSERT INTO "dialogs" VALUES (10,5040,NULL,NULL,0,0,1,0,'Список диалогов');
@@ -310,11 +311,15 @@ INSERT INTO "texts" VALUES (5025,1,'✨ Просмотр диалога: ✨
 <b>Комментарий</b>: {{dialog.comment}}
 
 <b>Текст</b>:
+---
 {{dialog.text.text}}
+---
 
-<b>Следующий диалог (все кнопки)</b>: {{dialog.next_dialog_id if dialog.next_dialog_id else "-"}}
-{% if dialog.next_dialog_id %}<b>Комментарий:</b> {{dialog.next_dialog_comment}}
-{% endif %}');
+<b>Следующий диалог (все кнопки)</b>: {{"Да" if dialog.next_dialog_id else "-"}}
+{% if dialog.next_dialog_id -%}
+- <b>ID:</b> {{dialog.next_dialog_id}}
+- <b>Комментарий:</b> {{dialog.next_dialog_comment}}
+{% endif -%}');
 INSERT INTO "texts" VALUES (5026,1,'Установить себе и перейти');
 INSERT INTO "texts" VALUES (5027,1,'Редактировать текст');
 INSERT INTO "texts" VALUES (5028,1,'Добавить изображение');
@@ -341,9 +346,9 @@ INSERT INTO "texts" VALUES (5045,1,'<b>Кнопка:</b> {{option.text.text}}
 
 {% if option.next_dialog_id -%}
 <b>Связанный диалог:</b>
-<b>ID:</b>{{ option.next_dialog_id }}
-<b>Комментарий:</b> ...
-{% else %}
+-<b>ID:</b>{{ option.next_dialog_id }}
+-<b>Комментарий:</b> {{ option.next_dialog_comment }}
+{% else -%}
 <b>Связанный диалог:</b> Нет
 {% endif -%}');
 INSERT INTO "texts" VALUES (5047,1,'Отмена');
@@ -365,7 +370,7 @@ INSERT INTO "texts" VALUES (5062,1,'Переместить вниз');
 INSERT INTO "texts" VALUES (5063,1,'Связанный диалог');
 INSERT INTO "texts" VALUES (5064,1,'Отвязать диалог');
 INSERT INTO "texts" VALUES (5065,1,'Назначить диалог');
-INSERT INTO "texts" VALUES (5066,1,'Назад');
+INSERT INTO "texts" VALUES (5066,1,'К диалогу');
 INSERT INTO "texts" VALUES (5067,1,'Отмена');
 INSERT INTO "texts" VALUES (5068,1,'Удалить');
 INSERT INTO "texts" VALUES (5069,1,'Отмена');
@@ -384,6 +389,7 @@ INSERT INTO "texts" VALUES (5081,1,'Вернуться');
 INSERT INTO "texts" VALUES (5082,1,'Сбросить поиск');
 INSERT INTO "texts" VALUES (5083,1,'К строке поиска');
 INSERT INTO "texts" VALUES (5084,1,'Отмена');
+INSERT INTO "texts" VALUES (5085,1,'Назад');
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_player_dialog_choice_unique" ON "player_dialog_choices" (
 	"player_id",
 	"dialog_id",

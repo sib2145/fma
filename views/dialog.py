@@ -23,6 +23,8 @@ class DialogOptionView:
     
     # Флаг для процессоров для лучшей идентификации динамических кнопок. Не связан с id из базы данных.
     processor_flag: str | None = None
+    
+    next_dialog_comment: str | None = None
 
 
 @dataclass
