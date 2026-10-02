@@ -165,7 +165,10 @@ INSERT INTO "dialog_options" VALUES (97,19,NULL,2,5074,15,0,NULL);
 INSERT INTO "dialog_options" VALUES (98,20,NULL,1,5075,15,0,NULL);
 INSERT INTO "dialog_options" VALUES (99,10,NULL,1,5079,10,0,NULL);
 INSERT INTO "dialog_options" VALUES (100,10,NULL,2,5080,10,0,NULL);
-INSERT INTO "dialog_options" VALUES (101,10,NULL,3,5081,7,0,NULL);
+INSERT INTO "dialog_options" VALUES (101,10,NULL,5,5081,7,0,NULL);
+INSERT INTO "dialog_options" VALUES (102,10,NULL,3,5082,10,0,NULL);
+INSERT INTO "dialog_options" VALUES (103,10,NULL,4,5083,21,0,NULL);
+INSERT INTO "dialog_options" VALUES (104,21,NULL,1,5084,10,0,NULL);
 INSERT INTO "dialogs" VALUES (1,5006,NULL,NULL,1,0,0,0,'Сюжетный 1');
 INSERT INTO "dialogs" VALUES (2,5008,NULL,4,1,1,0,0,'Сюжетный 2');
 INSERT INTO "dialogs" VALUES (3,5015,NULL,2,0,0,0,0,'Сюжетный, подсказка кем был и прибавки');
@@ -378,6 +381,9 @@ INSERT INTO "texts" VALUES (5078,1,'test');
 INSERT INTO "texts" VALUES (5079,1,'◀ Назад');
 INSERT INTO "texts" VALUES (5080,1,'Вперёд ▶');
 INSERT INTO "texts" VALUES (5081,1,'Вернуться');
+INSERT INTO "texts" VALUES (5082,1,'Сбросить поиск');
+INSERT INTO "texts" VALUES (5083,1,'К строке поиска');
+INSERT INTO "texts" VALUES (5084,1,'Отмена');
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_player_dialog_choice_unique" ON "player_dialog_choices" (
 	"player_id",
 	"dialog_id",

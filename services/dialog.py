@@ -19,6 +19,8 @@ from enum import Enum
 
 import math
 
+from sqlalchemy import or_
+
 from models.condition import Condition
 from models.condition_type import ConditionType
 from models.player_dialog_choice import PlayerDialogChoice
@@ -190,7 +192,18 @@ class DialogService:
         # Редактор диалогов - список диалогов
         # --------------------------------------------------
         elif dialog.id == 10:
-            dialogs_count = await self.count()
+            import math
+
+            search_str = session.processor_data.get(
+                "search_str"
+            )
+
+            # --------------------------------------------------
+            # Количество диалогов с учётом поиска.
+            # --------------------------------------------------
+            dialogs_count = await self.count(
+                search_str=search_str,
+            )
 
             pages_count = max(
                 1,
@@ -199,9 +212,9 @@ class DialogService:
                 ),
             )
 
-            # Получаем текущую страницу из session.
-            # Если страница ещё не была установлена —
-            # показываем первую.
+            # --------------------------------------------------
+            # Текущая страница.
+            # --------------------------------------------------
             page = session.processor_data.get(
                 "dialog_list_page",
                 1,
@@ -212,7 +225,6 @@ class DialogService:
             except (TypeError, ValueError):
                 page = 1
 
-            # Ограничиваем страницу допустимым диапазоном.
             page = max(
                 1,
                 min(page, pages_count),
@@ -228,14 +240,17 @@ class DialogService:
             dialogs = await self.get_page(
                 page=page,
                 per_page=self.dialogs_per_page,
+                search_str=search_str,
             )
 
             # --------------------------------------------------
-            # Находим постоянные кнопки, которые пришли из БД.
+            # Постоянные кнопки из БД.
             #
             # 99  - Назад
             # 100 - Вперёд
             # 101 - В редактор
+            # 102 - Сбросить поиск
+            # 103 - К строке поиска
             # --------------------------------------------------
             previous_option = next(
                 (
@@ -264,8 +279,26 @@ class DialogService:
                 None,
             )
 
+            reset_search_option = next(
+                (
+                    option
+                    for option in dialog.options
+                    if option.id == 102
+                ),
+                None,
+            )
+
+            search_option = next(
+                (
+                    option
+                    for option in dialog.options
+                    if option.id == 103
+                ),
+                None,
+            )
+
             # --------------------------------------------------
-            # Создаём динамические кнопки диалогов.
+            # Динамические кнопки найденных диалогов.
             # --------------------------------------------------
             dynamic_options = []
 
@@ -278,21 +311,18 @@ class DialogService:
                             f"{item.comment or item.text.text}"
                         ),
                         next_dialog_id=6,
-                        processor_flag=f"view_dialog:{item.id}",
+                        processor_flag=(
+                            f"view_dialog:{item.id}"
+                        ),
                     )
                 )
 
             # --------------------------------------------------
-            # Формируем итоговый список кнопок.
-            #
-            # Динамические кнопки
-            #        ↓
-            # Назад / Вперёд
-            #        ↓
-            # В редактор
+            # Формируем итоговый список.
             # --------------------------------------------------
             dialog.options = dynamic_options
 
+            # Пагинация.
             if (
                 page > 1
                 and previous_option is not None
@@ -309,6 +339,23 @@ class DialogService:
                     next_option
                 )
 
+            # --------------------------------------------------
+            # Кнопки поиска.
+            #
+            # Показываем их только при активном поиске.
+            # --------------------------------------------------
+            if search_str:
+                if reset_search_option is not None:
+                    dialog.options.append(
+                        reset_search_option
+                    )
+
+                if search_option is not None:
+                    dialog.options.append(
+                        search_option
+                    )
+
+            # В редактор всегда доступен.
             if editor_option is not None:
                 dialog.options.append(
                     editor_option
@@ -322,7 +369,9 @@ class DialogService:
                 "dialog_list_page": page,
                 "dialog_list_pages": pages_count,
                 "dialogs_per_page": self.dialogs_per_page,
+                "search_str": search_str,
             })
+
 
             
         # --------------------------------------------------
@@ -599,9 +648,6 @@ class DialogService:
 
             # --------------------------------------------------
             # ◀ Назад
-            #
-            # Следующий диалог остаётся 10.
-            # Перед переходом сохраняем предыдущую страницу.
             # --------------------------------------------------
             if selected_option.id == 99:
                 page = session.processor_data.get(
@@ -620,9 +666,6 @@ class DialogService:
 
             # --------------------------------------------------
             # Вперёд ▶
-            #
-            # Следующий диалог остаётся 10.
-            # Перед переходом сохраняем следующую страницу.
             # --------------------------------------------------
             elif selected_option.id == 100:
                 page = session.processor_data.get(
@@ -641,39 +684,67 @@ class DialogService:
 
             # --------------------------------------------------
             # В редактор
-            #
-            # Опция 101 сама имеет next_dialog_id = 7,
-            # поэтому здесь достаточно очистить состояние
-            # списка.
             # --------------------------------------------------
             elif selected_option.id == 101:
+                session.processor_data.pop(
+                    "search_str",
+                    None,
+                )
+
                 session.processor_data.pop(
                     "dialog_list_page",
                     None,
                 )
-                
-            # Если нажата кнопка с просмотром id конкретного диалога            
-            elif selected_option.processor_flag:
-                if selected_option.processor_flag.startswith(
-                    "view_dialog:"
-                ):
-                    dialog_id = int(
-                        selected_option.processor_flag.split(
-                            ":",
-                            1,
-                        )[1]
-                    )
-                    
-                    viewing_dialog = await self.get_by_id(
-                        dialog_id
-                    )
-                    
-                    if viewing_dialog is None:
-                        return session
 
-                    session.processor_data[
-                        "viewing_dialog"
-                    ] = viewing_dialog
+            # --------------------------------------------------
+            # Сбросить поиск
+            # --------------------------------------------------
+            elif selected_option.id == 102:
+                session.processor_data.pop(
+                    "search_str",
+                    None,
+                )
+
+                session.processor_data[
+                    "dialog_list_page"
+                ] = 1
+
+            # --------------------------------------------------
+            # К строке поиска
+            #
+            # Поиск сохраняем, чтобы пользователь мог
+            # увидеть/изменить текущую строку.
+            # --------------------------------------------------
+            elif selected_option.id == 103:
+                pass
+
+            # --------------------------------------------------
+            # Просмотр выбранного диалога.
+            # --------------------------------------------------
+            elif (
+                selected_option.processor_flag is not None
+                and selected_option.processor_flag.startswith(
+                    "view_dialog:"
+                )
+            ):
+                dialog_id = int(
+                    selected_option.processor_flag.split(
+                        ":",
+                        1,
+                    )[1]
+                )
+
+                viewing_dialog = await self.get_by_id(
+                    dialog_id
+                )
+
+                if viewing_dialog is None:
+                    return session
+
+                session.processor_data[
+                    "viewing_dialog"
+                ] = viewing_dialog
+
 
 
                         
@@ -1309,6 +1380,31 @@ class DialogService:
             ] = updated_option
 
         
+        # Диалог ввода строки поиска диалогов
+        elif dialog.id == 21:
+            search_str = (
+                user_input.strip()
+                if user_input is not None
+                else ""
+            )
+
+            if not search_str:
+                valid = False
+                error_message = (
+                    "Строка поиска не может быть пустой."
+                )
+            else:
+                session.processor_data[
+                    "search_str"
+                ] = search_str
+
+                # После нового поиска всегда начинаем
+                # с первой страницы.
+                session.processor_data[
+                    "dialog_list_page"
+                ] = 1
+
+        
         
         #####
         print("input in input processor valid: ", valid)
@@ -1598,7 +1694,10 @@ class DialogService:
 
             return True
 
-    async def count(self) -> int:
+    async def count(
+        self,
+        search_str: str | None = None,
+    ) -> int:
         async with self.db.session_factory() as session:
             query = select(
                 func.count(Dialog.id)
@@ -1607,6 +1706,24 @@ class DialogService:
             if not self.show_extra:
                 query = query.where(
                     Dialog.is_extra == 0
+                )
+
+            if search_str:
+                search = f"%{search_str}%"
+
+                query = (
+                    query
+                    .join(
+                        Text,
+                        Dialog.text_id == Text.id,
+                    )
+                    .where(
+                        Text.locale_id == 1,
+                        or_(
+                            Text.text.ilike(search),
+                            Dialog.comment.ilike(search),
+                        ),
+                    )
                 )
 
             result = await session.execute(query)
@@ -1618,8 +1735,8 @@ class DialogService:
         self,
         page: int,
         per_page: int,
+        search_str: str | None = None,
     ) -> list[Dialog]:
-
         async with self.db.session_factory() as session:
             offset = (page - 1) * per_page
 
@@ -1635,6 +1752,24 @@ class DialogService:
                     Dialog.is_extra == 0
                 )
 
+            if search_str:
+                search = f"%{search_str}%"
+
+                query = (
+                    query
+                    .join(
+                        Text,
+                        Dialog.text_id == Text.id,
+                    )
+                    .where(
+                        Text.locale_id == 1,
+                        or_(
+                            Text.text.ilike(search),
+                            Dialog.comment.ilike(search),
+                        ),
+                    )
+                )
+
             query = (
                 query
                 .order_by(Dialog.id)
@@ -1647,39 +1782,6 @@ class DialogService:
             return list(result.scalars())
 
 
-    async def search(
-        self,
-        search_text: str,
-        locale_id: int = 1,
-    ) -> list[Dialog]:
-
-        async with self.db.session_factory() as session:
-            query = (
-                select(Dialog)
-                .join(
-                    Text,
-                    Dialog.text_id == Text.id
-                )
-                .options(
-                    selectinload(Dialog.text)
-                )
-                .where(
-                    Text.locale_id == locale_id,
-                    Text.text.ilike(
-                        f"%{search_text}%"
-                    ),
-                )
-                .order_by(Dialog.id)
-            )
-
-            if not self.show_extra:
-                query = query.where(
-                    Dialog.is_extra == 0
-                )
-
-            result = await session.execute(query)
-
-            return list(result.scalars())
 
 
             
